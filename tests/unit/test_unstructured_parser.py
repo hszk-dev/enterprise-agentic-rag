@@ -129,9 +129,11 @@ class TestUnstructuredParser:
     def test_is_blob_path_uuid_format(self):
         """Test blob path detection for UUID-based paths."""
         parser = UnstructuredParser()
-        # Valid UUID format path
+        # Valid blob storage path format: documents/{uuid}/{filename}
         assert (
-            parser._is_blob_path("550e8400-e29b-41d4-a716-446655440000/document.pdf")
+            parser._is_blob_path(
+                "documents/550e8400-e29b-41d4-a716-446655440000/document.pdf"
+            )
             is True
         )
 
@@ -299,12 +301,12 @@ class TestUnstructuredParserAsync:
             mock_partition.return_value = [mock_element]
 
             result = await parser.parse(
-                "550e8400-e29b-41d4-a716-446655440000/document.txt"
+                "documents/550e8400-e29b-41d4-a716-446655440000/document.txt"
             )
 
             assert result == "Blob content"
             mock_storage.download.assert_called_once_with(
-                "550e8400-e29b-41d4-a716-446655440000/document.txt"
+                "documents/550e8400-e29b-41d4-a716-446655440000/document.txt"
             )
 
     @pytest.mark.asyncio

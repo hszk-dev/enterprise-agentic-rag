@@ -6,6 +6,7 @@ Supports PDF, DOCX, TXT, Markdown, and HTML documents.
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -125,10 +126,11 @@ class UnstructuredParser(DocumentParser):
             data = content.read()
 
             # Run parsing in thread pool
+            # Note: partition() requires file=BytesIO for in-memory content
             loop = asyncio.get_event_loop()
             elements = await loop.run_in_executor(
                 _executor,
-                lambda: partition(file=None, filename=filename, file_content=data),
+                lambda: partition(file=io.BytesIO(data), metadata_filename=filename),
             )
 
             # Combine elements into text
@@ -224,7 +226,8 @@ class UnstructuredParser(DocumentParser):
     def _is_blob_path(self, path: str) -> bool:
         """Check if a path is a blob storage path.
 
-        Blob paths typically contain the document UUID as a directory.
+        Blob paths are in format: documents/{uuid}/{filename}
+        Local paths are absolute or relative file paths.
 
         Args:
             path: Path to check.
@@ -232,13 +235,12 @@ class UnstructuredParser(DocumentParser):
         Returns:
             True if this looks like a blob storage path.
         """
-        # Blob paths are in format: {uuid}/{filename}
-        # Local paths are absolute or relative file paths
+        # Blob paths start with "documents/" prefix and contain a UUID segment
         parts = path.split("/")
-        if len(parts) >= 2:
-            # Check if first part looks like a UUID (36 chars with hyphens)
-            first_part = parts[0]
-            if len(first_part) == 36 and first_part.count("-") == 4:
+        if len(parts) >= 3 and parts[0] == "documents":
+            # Check if second part looks like a UUID (36 chars with hyphens)
+            uuid_part = parts[1]
+            if len(uuid_part) == 36 and uuid_part.count("-") == 4:
                 return True
         return False
 
