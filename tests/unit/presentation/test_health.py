@@ -1,5 +1,7 @@
 """Unit tests for health endpoints."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -8,8 +10,27 @@ from src.main import app
 
 @pytest.fixture
 def client():
-    """Create a test client."""
-    with TestClient(app) as test_client:
+    """Create a test client with mocked lifespan dependencies."""
+    # Create mock repository and vector store for lifespan
+    mock_repo = AsyncMock()
+    mock_repo.initialize = AsyncMock()
+    mock_repo.close = AsyncMock()
+
+    mock_vector_store = AsyncMock()
+    mock_vector_store.initialize = AsyncMock()
+
+    # Patch functions called directly in lifespan (not through Depends)
+    with (
+        patch(
+            "src.main.get_document_repository",
+            return_value=mock_repo,
+        ),
+        patch(
+            "src.main.get_vector_store",
+            return_value=mock_vector_store,
+        ),
+        TestClient(app) as test_client,
+    ):
         yield test_client
 
 

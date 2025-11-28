@@ -2,7 +2,7 @@
 
 import io
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -50,10 +50,30 @@ class TestDocumentEndpoints:
     @pytest.fixture
     def client(self, mock_document_repo, mock_ingestion_service):
         """Create test client with mocked dependencies."""
+        # Create mock repository and vector store for lifespan
+        mock_lifespan_repo = AsyncMock()
+        mock_lifespan_repo.initialize = AsyncMock()
+        mock_lifespan_repo.close = AsyncMock()
+
+        mock_vector_store = AsyncMock()
+        mock_vector_store.initialize = AsyncMock()
+
+        # Mock service dependencies
         app.dependency_overrides[get_document_repository] = lambda: mock_document_repo
         app.dependency_overrides[get_ingestion_service] = lambda: mock_ingestion_service
 
-        with TestClient(app) as test_client:
+        # Patch functions called directly in lifespan (not through Depends)
+        with (
+            patch(
+                "src.main.get_document_repository",
+                return_value=mock_lifespan_repo,
+            ),
+            patch(
+                "src.main.get_vector_store",
+                return_value=mock_vector_store,
+            ),
+            TestClient(app) as test_client,
+        ):
             yield test_client
 
         app.dependency_overrides.clear()
