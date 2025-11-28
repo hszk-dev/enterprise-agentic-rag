@@ -107,6 +107,12 @@ class TokenUsage:
         """Estimate API cost in USD.
 
         Pricing based on OpenAI rates (August 2025):
+
+        GPT-4 series :
+        - GPT-4o: $2.50/1M input, $10.00/1M output
+        - GPT-4o-mini: $0.15/1M input, $0.60/1M output
+
+        GPT-5 series:
         - GPT-5: $1.25/1M input, $10.00/1M output
         - GPT-5 mini: $0.25/1M input, $2.00/1M output
         - GPT-5 nano: $0.05/1M input, $0.40/1M output
@@ -116,7 +122,15 @@ class TokenUsage:
         """
         model_lower = self.model.lower()
 
-        if "nano" in model_lower:
+        # GPT-4 series
+        if "gpt-4o-mini" in model_lower:
+            input_cost = (self.prompt_tokens / 1_000_000) * 0.15
+            output_cost = (self.completion_tokens / 1_000_000) * 0.60
+        elif "gpt-4o" in model_lower:
+            input_cost = (self.prompt_tokens / 1_000_000) * 2.50
+            output_cost = (self.completion_tokens / 1_000_000) * 10.00
+        # GPT-5 series
+        elif "nano" in model_lower:
             # GPT-5 nano pricing
             input_cost = (self.prompt_tokens / 1_000_000) * 0.05
             output_cost = (self.completion_tokens / 1_000_000) * 0.40

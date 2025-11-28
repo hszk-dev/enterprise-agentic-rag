@@ -143,7 +143,9 @@ ignore = [
 known-first-party = ["src", "config"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["ARG", "PLR2004"]
+"tests/*" = ["ARG", "PLR2004", "PLC0415"]  # Allow lazy imports for optional dependencies in tests
+"tests/integration/fixtures/golden_qa_dataset.py" = ["RUF001"]  # Allow fullwidth Japanese characters
+"tests/integration/evaluators/ragas_wrapper.py" = ["PLC0415"]  # Lazy import for optional Ragas
 "src/infrastructure/embeddings/fastembed_sparse.py" = ["PLC0415"]  # Lazy import for optional dependency
 "src/application/services/ingestion_service.py" = ["TCH001"]
 
@@ -160,6 +162,7 @@ markers = [
     "integration: Integration tests (requires external services)",
     "e2e: End-to-end tests",
     "slow: Slow tests",
+    "llm_quality: LLM quality tests using LLM-as-a-Judge (requires API keys)",
 ]
 
 [tool.coverage.run]
