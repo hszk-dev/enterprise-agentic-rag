@@ -409,14 +409,11 @@ def track_llm_test(
     This fixture automatically records each test that runs with the
     'llm_quality' marker.
     """
-    # Only track tests with llm_quality marker
-    if request.node.get_closest_marker("llm_quality") is None:
-        return
-
     yield
 
-    # Record test completion
-    token_usage_tracker.record_test(request.node.name)
+    # Only track tests with llm_quality marker
+    if request.node.get_closest_marker("llm_quality") is not None:
+        token_usage_tracker.record_test(request.node.name)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
