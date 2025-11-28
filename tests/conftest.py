@@ -4,7 +4,13 @@ import os
 
 import pytest
 
-from config import DatabaseSettings, MinIOSettings, OpenAISettings, QdrantSettings
+from config import (
+    ChunkingSettings,
+    DatabaseSettings,
+    MinIOSettings,
+    OpenAISettings,
+    QdrantSettings,
+)
 
 
 @pytest.fixture
@@ -84,4 +90,17 @@ def openai_settings():
         embedding_dimensions=1536,
         max_retries=3,
         timeout=30.0,
+    )
+
+
+@pytest.fixture
+def chunking_settings():
+    """Create chunking settings for testing.
+
+    Uses smaller chunk size for faster tests.
+    """
+    return ChunkingSettings(
+        chunk_size=500,
+        chunk_overlap=100,
+        separators=["\n\n", "\n", ". ", " ", ""],
     )

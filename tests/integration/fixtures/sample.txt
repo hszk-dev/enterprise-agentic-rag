@@ -1,0 +1,63 @@
+Enterprise RAG Platform Documentation
+
+This is a comprehensive guide to building production-ready
+Retrieval-Augmented Generation systems for enterprise applications.
+
+Chapter 1: Introduction
+
+RAG combines the power of retrieval systems with large language models
+to provide accurate, grounded responses. Unlike pure LLM approaches,
+RAG systems can access up-to-date information and cite sources.
+
+Key benefits of RAG:
+- Reduced hallucinations through grounded retrieval
+- Access to proprietary and current information
+- Transparent source attribution
+- Lower costs compared to fine-tuning
+
+Chapter 2: Architecture
+
+The system uses a clean architecture with distinct layers:
+
+1. Domain Layer: Core business logic and entities
+2. Application Layer: Use cases and orchestration
+3. Infrastructure Layer: External service integrations
+4. Presentation Layer: API endpoints
+
+This separation of concerns enables:
+- Independent testing of each layer
+- Easy replacement of infrastructure components
+- Clear dependency direction (inward only)
+
+Chapter 3: Ingestion Pipeline
+
+The ingestion pipeline processes documents through several stages:
+
+1. Upload: Files are stored in object storage (MinIO/S3)
+2. Parse: Documents are converted to plain text
+3. Chunk: Text is split into searchable segments
+4. Embed: Vector representations are generated
+5. Index: Chunks are stored in the vector database
+
+Error handling uses the Saga pattern with compensating transactions
+to maintain data consistency across distributed storage systems.
+
+Chapter 4: Search and Retrieval
+
+Hybrid search combines dense and sparse retrieval:
+
+- Dense vectors capture semantic similarity
+- Sparse vectors (SPLADE) preserve keyword matching
+- Reciprocal Rank Fusion merges results
+
+Re-ranking with cross-encoders improves precision for top results.
+
+Chapter 5: Generation
+
+The generation phase constructs prompts with retrieved context
+and generates responses using large language models.
+
+Best practices:
+- Include source citations in responses
+- Set appropriate temperature (0 for factual queries)
+- Implement fallback strategies for API failures
