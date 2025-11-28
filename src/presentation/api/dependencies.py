@@ -49,34 +49,35 @@ SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 
 @lru_cache
-def get_blob_storage(settings: Settings = Depends(get_settings)) -> BlobStorage:
+def get_blob_storage() -> BlobStorage:
     """Get the blob storage instance (MinIO).
 
     Returns:
         BlobStorage instance for file operations.
     """
+    settings = get_settings()
     return MinIOStorage(settings.minio)
 
 
 @lru_cache
-def get_document_repository(
-    settings: Settings = Depends(get_settings),
-) -> DocumentRepository:
+def get_document_repository() -> DocumentRepository:
     """Get the document repository instance (PostgreSQL).
 
     Returns:
         DocumentRepository instance for document metadata.
     """
+    settings = get_settings()
     return PostgresDocumentRepository(settings.database)
 
 
 @lru_cache
-def get_vector_store(settings: Settings = Depends(get_settings)) -> VectorStore:
+def get_vector_store() -> VectorStore:
     """Get the vector store instance (Qdrant).
 
     Returns:
         VectorStore instance for vector operations.
     """
+    settings = get_settings()
     return QdrantVectorStore(
         settings.qdrant,
         embedding_dim=settings.openai.embedding_dimensions,
@@ -84,14 +85,13 @@ def get_vector_store(settings: Settings = Depends(get_settings)) -> VectorStore:
 
 
 @lru_cache
-def get_embedding_service(
-    settings: Settings = Depends(get_settings),
-) -> EmbeddingService:
+def get_embedding_service() -> EmbeddingService:
     """Get the dense embedding service instance (OpenAI).
 
     Returns:
         EmbeddingService instance for dense embeddings.
     """
+    settings = get_settings()
     return OpenAIEmbeddingService(settings.openai)
 
 
@@ -106,22 +106,24 @@ def get_sparse_embedding_service() -> SparseEmbeddingService:
 
 
 @lru_cache
-def get_reranker(settings: Settings = Depends(get_settings)) -> Reranker:
+def get_reranker() -> Reranker:
     """Get the reranker instance (Cohere).
 
     Returns:
         Reranker instance for result reranking.
     """
+    settings = get_settings()
     return CohereReranker(settings.cohere)
 
 
 @lru_cache
-def get_llm_service(settings: Settings = Depends(get_settings)) -> LLMService:
+def get_llm_service() -> LLMService:
     """Get the LLM service instance (OpenAI).
 
     Returns:
         LLMService instance for text generation.
     """
+    settings = get_settings()
     return OpenAILLMService(settings.openai)
 
 
