@@ -57,6 +57,9 @@ dependencies = [
     # Re-ranking
     "cohere>=5.11.0",
 
+    # Sparse Embeddings
+    "fastembed>=0.4.0",
+
     # Utilities
     "httpx>=0.27.0",
     "python-multipart>=0.0.17",
@@ -141,6 +144,7 @@ known-first-party = ["src", "config"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG", "PLR2004"]
+"src/infrastructure/embeddings/fastembed_sparse.py" = ["PLC0415"]  # Lazy import for optional dependency
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -194,5 +198,6 @@ module = [
     "langfuse.*",
     "cohere.*",
     "unstructured.*",
+    "fastembed.*",
 ]
 ignore_missing_imports = true
