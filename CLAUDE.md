@@ -218,26 +218,52 @@ enterprise-agentic-rag/
 │   ├── __init__.py
 │   └── settings.py
 ├── docs/
-│   └── adr/                 # Architecture Decision Records
+│   ├── adr/                 # Architecture Decision Records
+│   └── design/              # Detailed design documents
 ├── src/
 │   ├── domain/              # 外部依存なし
 │   │   ├── __init__.py
-│   │   ├── entities.py      # Document, Query, etc.
+│   │   ├── entities.py      # Document, Chunk, Query, SearchResult
 │   │   ├── exceptions.py    # Custom exceptions
-│   │   └── interfaces.py    # Abstract base classes
+│   │   ├── interfaces.py    # Protocol classes
+│   │   └── value_objects.py # DocumentStatus, TokenUsage, etc.
 │   ├── application/         # ユースケース
 │   │   ├── __init__.py
-│   │   ├── services.py
-│   │   └── use_cases.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── ingestion_service.py
+│   │   │   ├── search_service.py
+│   │   │   └── generation_service.py
+│   │   └── use_cases/
+│   │       ├── __init__.py
+│   │       ├── upload_document.py
+│   │       ├── search_documents.py
+│   │       └── generate_answer.py
 │   ├── infrastructure/      # 具体実装
 │   │   ├── __init__.py
-│   │   ├── qdrant_repository.py
-│   │   ├── openai_client.py
-│   │   └── langfuse_tracer.py
+│   │   ├── storage/
+│   │   │   └── minio_storage.py
+│   │   ├── repositories/
+│   │   │   └── postgres_document_repository.py
+│   │   ├── vectorstores/
+│   │   │   └── qdrant_vectorstore.py
+│   │   ├── embeddings/
+│   │   │   ├── openai_embedding.py
+│   │   │   └── fastembed_sparse.py
+│   │   ├── rerankers/
+│   │   │   └── cohere_reranker.py
+│   │   └── llm/
+│   │       └── openai_llm.py
 │   ├── presentation/        # API層
 │   │   ├── __init__.py
-│   │   ├── api.py
-│   │   └── schemas.py
+│   │   ├── api/
+│   │   │   └── v1/
+│   │   │       ├── health.py
+│   │   │       ├── documents.py
+│   │   │       └── query.py
+│   │   └── schemas/
+│   │       ├── documents.py
+│   │       └── query.py
 │   └── main.py              # Entrypoint
 ├── tests/
 │   ├── unit/

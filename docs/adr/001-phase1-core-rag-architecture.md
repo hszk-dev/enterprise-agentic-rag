@@ -505,7 +505,11 @@ Clean ArchitectureのProtocolベースインターフェースにより、Infras
 
 ## Notes
 
-### API Pricing (2025年11月時点)
+### API Pricing
+
+> **Last verified:** 2025-11-28 15:23 JST
+>
+> ⚠️ 価格は変動する可能性があります。最新情報は各サービスの公式ページを確認してください。
 
 #### OpenAI
 
