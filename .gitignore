@@ -123,7 +123,7 @@ models/
 
 # Vector DB Data
 qdrant_data/
-storage/
+/storage/
 
 # =============================================================================
 # Jupyter Notebooks
