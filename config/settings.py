@@ -119,7 +119,12 @@ class OpenAISettings(BaseSettings):
 class CohereSettings(BaseSettings):
     """Cohere API settings."""
 
-    model_config = SettingsConfigDict(env_prefix="COHERE_")
+    model_config = SettingsConfigDict(
+        env_prefix="COHERE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: SecretStr = SecretStr("")
     rerank_model: str = "rerank-v3.5"
