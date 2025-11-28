@@ -3,15 +3,37 @@
 This module provides a lightweight LLM-based evaluation system that doesn't
 require the full Ragas framework. It's useful for quick validation and
 custom evaluation criteria.
+
+Environment variables for threshold configuration:
+    LLM_JUDGE_FAITHFULNESS_THRESHOLD: Minimum faithfulness score (default: 0.8)
+    LLM_JUDGE_RELEVANCY_THRESHOLD: Minimum relevancy score (default: 0.7)
 """
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
+
+# Default thresholds (can be overridden via environment variables)
+DEFAULT_FAITHFULNESS_THRESHOLD = 0.8
+DEFAULT_RELEVANCY_THRESHOLD = 0.7
+
+
+def _get_threshold(env_var: str, default: float) -> float:
+    """Get threshold from environment variable or use default."""
+    value = os.environ.get(env_var)
+    if value is not None:
+        try:
+            return float(value)
+        except ValueError:
+            logger.warning(
+                f"Invalid threshold value for {env_var}: {value}, using default {default}"
+            )
+    return default
 
 
 @dataclass
@@ -52,8 +74,8 @@ class LLMJudge:
         self,
         client: AsyncOpenAI,
         model: str = "gpt-4o-mini",
-        faithfulness_threshold: float = 0.8,
-        relevancy_threshold: float = 0.7,
+        faithfulness_threshold: float | None = None,
+        relevancy_threshold: float | None = None,
     ) -> None:
         """Initialize the LLM Judge.
 
@@ -61,12 +83,28 @@ class LLMJudge:
             client: AsyncOpenAI client for API calls.
             model: Model to use for evaluation (default: gpt-4o-mini for cost).
             faithfulness_threshold: Minimum score for faithfulness to pass.
+                If None, reads from LLM_JUDGE_FAITHFULNESS_THRESHOLD env var
+                or uses default (0.8).
             relevancy_threshold: Minimum score for relevancy to pass.
+                If None, reads from LLM_JUDGE_RELEVANCY_THRESHOLD env var
+                or uses default (0.7).
         """
         self._client = client
         self._model = model
-        self._faithfulness_threshold = faithfulness_threshold
-        self._relevancy_threshold = relevancy_threshold
+        self._faithfulness_threshold = (
+            faithfulness_threshold
+            if faithfulness_threshold is not None
+            else _get_threshold(
+                "LLM_JUDGE_FAITHFULNESS_THRESHOLD", DEFAULT_FAITHFULNESS_THRESHOLD
+            )
+        )
+        self._relevancy_threshold = (
+            relevancy_threshold
+            if relevancy_threshold is not None
+            else _get_threshold(
+                "LLM_JUDGE_RELEVANCY_THRESHOLD", DEFAULT_RELEVANCY_THRESHOLD
+            )
+        )
 
     async def evaluate_faithfulness(
         self,

@@ -21,6 +21,7 @@ from config.settings import OpenAISettings
 from src.application.services.generation_service import GenerationService
 from src.domain.entities import Chunk, Query, SearchResult
 from src.infrastructure.llm.openai_llm import OpenAILLMService
+from tests.integration.conftest import TokenUsageTracker
 from tests.integration.evaluators.llm_judge import LLMJudge
 from tests.integration.evaluators.ragas_wrapper import is_ragas_available
 from tests.integration.fixtures.golden_qa_dataset import (
@@ -28,6 +29,36 @@ from tests.integration.fixtures.golden_qa_dataset import (
     GoldenQACase,
     get_dataset_by_language,
 )
+
+# =============================================================================
+# Parametrize Helpers
+# =============================================================================
+
+
+def _get_en_test_cases() -> list[GoldenQACase]:
+    """Get English test cases for parametrize."""
+    return get_dataset_by_language("en")[:3]
+
+
+def _get_ja_test_cases() -> list[GoldenQACase]:
+    """Get Japanese test cases for parametrize."""
+    return get_dataset_by_language("ja")
+
+
+def _get_relevancy_test_cases() -> list[GoldenQACase]:
+    """Get test cases for answer relevancy tests."""
+    return GOLDEN_QA_DATASET[:5]
+
+
+def _get_hallucination_test_cases() -> list[GoldenQACase]:
+    """Get test cases that have must_not_contain for hallucination tests."""
+    return [tc for tc in GOLDEN_QA_DATASET if tc.must_not_contain]
+
+
+def _case_id(case: GoldenQACase) -> str:
+    """Generate a test ID from a GoldenQACase."""
+    return case.id
+
 
 # Skip all tests if OPENAI_API_KEY is not set
 pytestmark = [
@@ -85,12 +116,6 @@ async def llm_judge(openai_settings: OpenAISettings) -> LLMJudge:
     )
 
 
-@pytest.fixture
-def golden_dataset() -> list[GoldenQACase]:
-    """Return the golden Q&A dataset."""
-    return GOLDEN_QA_DATASET
-
-
 def _create_search_results(contexts: list[str]) -> list[SearchResult]:
     """Create mock search results from context strings."""
     results = []
@@ -126,84 +151,95 @@ def _create_search_results(contexts: list[str]) -> list[SearchResult]:
 class TestGenerationQualityWithLLMJudge:
     """Test generation quality using custom LLM Judge."""
 
+    @pytest.mark.parametrize("test_case", _get_en_test_cases(), ids=_case_id)
     async def test_faithfulness_english(
         self,
         generation_service: GenerationService,
         llm_judge: LLMJudge,
+        token_usage_tracker: TokenUsageTracker,
+        test_case: GoldenQACase,
     ) -> None:
         """Test faithfulness score for English Q&A pairs."""
-        test_cases = get_dataset_by_language("en")[:3]  # Test first 3 English cases
+        query = Query.create(text=test_case.question)
+        search_results = _create_search_results(test_case.context)
 
-        for test_case in test_cases:
-            query = Query.create(text=test_case.question)
-            search_results = _create_search_results(test_case.context)
+        result, _ = await generation_service.generate(query, search_results)
 
-            result, _ = await generation_service.generate(query, search_results)
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
-            # Evaluate faithfulness
-            judge_result = await llm_judge.evaluate_faithfulness(
-                question=test_case.question,
-                answer=result.answer,
-                context=test_case.context,
-            )
+        # Evaluate faithfulness
+        judge_result = await llm_judge.evaluate_faithfulness(
+            question=test_case.question,
+            answer=result.answer,
+            context=test_case.context,
+        )
 
-            assert judge_result.passed, (
-                f"Faithfulness failed for {test_case.id}: "
-                f"score={judge_result.score:.2f}, reason={judge_result.reason}"
-            )
+        assert judge_result.passed, (
+            f"Faithfulness failed for {test_case.id}: "
+            f"score={judge_result.score:.2f}, reason={judge_result.reason}"
+        )
 
+    @pytest.mark.parametrize("test_case", _get_ja_test_cases(), ids=_case_id)
     async def test_faithfulness_japanese(
         self,
         generation_service: GenerationService,
         llm_judge: LLMJudge,
+        token_usage_tracker: TokenUsageTracker,
+        test_case: GoldenQACase,
     ) -> None:
         """Test faithfulness score for Japanese Q&A pairs."""
-        test_cases = get_dataset_by_language("ja")
+        query = Query.create(text=test_case.question)
+        search_results = _create_search_results(test_case.context)
 
-        for test_case in test_cases:
-            query = Query.create(text=test_case.question)
-            search_results = _create_search_results(test_case.context)
+        result, _ = await generation_service.generate(query, search_results)
 
-            result, _ = await generation_service.generate(query, search_results)
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
-            judge_result = await llm_judge.evaluate_faithfulness(
-                question=test_case.question,
-                answer=result.answer,
-                context=test_case.context,
-            )
+        judge_result = await llm_judge.evaluate_faithfulness(
+            question=test_case.question,
+            answer=result.answer,
+            context=test_case.context,
+        )
 
-            assert judge_result.passed, (
-                f"Japanese faithfulness failed for {test_case.id}: "
-                f"score={judge_result.score:.2f}, reason={judge_result.reason}"
-            )
+        assert judge_result.passed, (
+            f"Japanese faithfulness failed for {test_case.id}: "
+            f"score={judge_result.score:.2f}, reason={judge_result.reason}"
+        )
 
+    @pytest.mark.parametrize("test_case", _get_relevancy_test_cases(), ids=_case_id)
     async def test_answer_relevancy(
         self,
         generation_service: GenerationService,
         llm_judge: LLMJudge,
-        golden_dataset: list[GoldenQACase],
+        token_usage_tracker: TokenUsageTracker,
+        test_case: GoldenQACase,
     ) -> None:
-        """Test answer relevancy across all test cases."""
-        for test_case in golden_dataset[:5]:  # Test first 5 cases
-            query = Query.create(text=test_case.question)
-            search_results = _create_search_results(test_case.context)
+        """Test answer relevancy across test cases."""
+        query = Query.create(text=test_case.question)
+        search_results = _create_search_results(test_case.context)
 
-            result, _ = await generation_service.generate(query, search_results)
+        result, _ = await generation_service.generate(query, search_results)
 
-            judge_result = await llm_judge.evaluate_answer_relevancy(
-                question=test_case.question,
-                answer=result.answer,
-            )
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
-            assert judge_result.passed, (
-                f"Answer relevancy failed for {test_case.id}: "
-                f"score={judge_result.score:.2f}, reason={judge_result.reason}"
-            )
+        judge_result = await llm_judge.evaluate_answer_relevancy(
+            question=test_case.question,
+            answer=result.answer,
+        )
+
+        assert judge_result.passed, (
+            f"Answer relevancy failed for {test_case.id}: "
+            f"score={judge_result.score:.2f}, reason={judge_result.reason}"
+        )
 
     async def test_topic_coverage(
         self,
         generation_service: GenerationService,
         llm_judge: LLMJudge,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test that expected topics are covered in answers."""
         test_case = GOLDEN_QA_DATASET[0]  # Python question
@@ -212,6 +248,9 @@ class TestGenerationQualityWithLLMJudge:
         search_results = _create_search_results(test_case.context)
 
         result, _ = await generation_service.generate(query, search_results)
+
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
         # Check at least some expected topics are covered
         covered_count = 0
@@ -226,36 +265,41 @@ class TestGenerationQualityWithLLMJudge:
             f"({covered_count}/{len(test_case.expected_topics)})"
         )
 
+    @pytest.mark.parametrize("test_case", _get_hallucination_test_cases(), ids=_case_id)
     async def test_no_hallucination(
         self,
         generation_service: GenerationService,
-        golden_dataset: list[GoldenQACase],
+        token_usage_tracker: TokenUsageTracker,
+        test_case: GoldenQACase,
     ) -> None:
         """Test that answers don't contain forbidden hallucinated content."""
-        for test_case in golden_dataset:
-            if not test_case.must_not_contain:
-                continue
+        query = Query.create(text=test_case.question)
+        search_results = _create_search_results(test_case.context)
 
-            query = Query.create(text=test_case.question)
-            search_results = _create_search_results(test_case.context)
+        result, _ = await generation_service.generate(query, search_results)
 
-            result, _ = await generation_service.generate(query, search_results)
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
-            for forbidden in test_case.must_not_contain:
-                assert forbidden.lower() not in result.answer.lower(), (
-                    f"Hallucination detected in {test_case.id}: "
-                    f"'{forbidden}' found in answer"
-                )
+        for forbidden in test_case.must_not_contain:
+            assert forbidden.lower() not in result.answer.lower(), (
+                f"Hallucination detected in {test_case.id}: "
+                f"'{forbidden}' found in answer"
+            )
 
     async def test_empty_context_handling(
         self,
         generation_service: GenerationService,
         llm_judge: LLMJudge,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test appropriate handling when context is empty or insufficient."""
         query = Query.create(text="What is the population of Mars?")
 
         result, _ = await generation_service.generate_with_no_context(query)
+
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
         # Should express uncertainty appropriately
         judge_result = await llm_judge.evaluate_uncertainty_handling(
@@ -286,6 +330,7 @@ class TestGenerationQualityWithRagas:
     async def test_ragas_faithfulness(
         self,
         generation_service: GenerationService,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test faithfulness using Ragas metric."""
         from tests.integration.evaluators.ragas_wrapper import RagasEvaluator
@@ -297,6 +342,9 @@ class TestGenerationQualityWithRagas:
         search_results = _create_search_results(test_case.context)
 
         result, _ = await generation_service.generate(query, search_results)
+
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
         scores = await evaluator.evaluate(
             question=test_case.question,
@@ -311,6 +359,7 @@ class TestGenerationQualityWithRagas:
     async def test_ragas_answer_relevancy(
         self,
         generation_service: GenerationService,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test answer relevancy using Ragas metric."""
         from tests.integration.evaluators.ragas_wrapper import RagasEvaluator
@@ -322,6 +371,9 @@ class TestGenerationQualityWithRagas:
         search_results = _create_search_results(test_case.context)
 
         result, _ = await generation_service.generate(query, search_results)
+
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
         scores = await evaluator.evaluate(
             question=test_case.question,
@@ -336,6 +388,7 @@ class TestGenerationQualityWithRagas:
     async def test_ragas_batch_evaluation(
         self,
         generation_service: GenerationService,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test batch evaluation using Ragas."""
         from tests.integration.evaluators.ragas_wrapper import RagasEvaluator
@@ -351,6 +404,9 @@ class TestGenerationQualityWithRagas:
             query = Query.create(text=test_case.question)
             search_results = _create_search_results(test_case.context)
             result, _ = await generation_service.generate(query, search_results)
+
+            # Track generation token usage
+            token_usage_tracker.add_generation_usage(result.usage)
 
             questions.append(test_case.question)
             answers.append(result.answer)
@@ -381,6 +437,7 @@ class TestStreamingGenerationQuality:
         self,
         generation_service: GenerationService,
         llm_judge: LLMJudge,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test that streaming output is coherent when assembled."""
         test_case = GOLDEN_QA_DATASET[0]
@@ -395,6 +452,14 @@ class TestStreamingGenerationQuality:
 
         # Assemble full answer
         full_answer = "".join(chunks)
+
+        # Note: Streaming doesn't return token counts directly,
+        # so we estimate based on character count (~4 chars per token)
+        estimated_output_tokens = len(full_answer) // 4
+        token_usage_tracker.add_generation_usage(
+            prompt_tokens=500,  # Estimated prompt tokens
+            completion_tokens=estimated_output_tokens,
+        )
 
         # Verify it's coherent and relevant
         judge_result = await llm_judge.evaluate_answer_relevancy(
@@ -419,6 +484,7 @@ class TestGenerationPerformance:
     async def test_generation_latency(
         self,
         generation_service: GenerationService,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test that generation completes within acceptable latency."""
         test_case = GOLDEN_QA_DATASET[0]
@@ -426,7 +492,10 @@ class TestGenerationPerformance:
         query = Query.create(text=test_case.question)
         search_results = _create_search_results(test_case.context)
 
-        _, metrics = await generation_service.generate(query, search_results)
+        result, metrics = await generation_service.generate(query, search_results)
+
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
         # Total latency should be under 10 seconds
         assert metrics.total_latency_ms < 10000, (
@@ -436,6 +505,7 @@ class TestGenerationPerformance:
     async def test_token_usage_tracking(
         self,
         generation_service: GenerationService,
+        token_usage_tracker: TokenUsageTracker,
     ) -> None:
         """Test that token usage is properly tracked."""
         test_case = GOLDEN_QA_DATASET[0]
@@ -444,6 +514,9 @@ class TestGenerationPerformance:
         search_results = _create_search_results(test_case.context)
 
         result, metrics = await generation_service.generate(query, search_results)
+
+        # Track generation token usage (uses TokenUsage.estimated_cost_usd internally)
+        token_usage_tracker.add_generation_usage(result.usage)
 
         # Token usage should be non-zero
         assert result.usage.prompt_tokens > 0

@@ -6,6 +6,8 @@ Start services with: make up
 
 import contextlib
 import io
+import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,7 +15,7 @@ import pytest
 
 from config import ChunkingSettings, MinIOSettings, QdrantSettings
 from src.domain.entities import Document
-from src.domain.value_objects import ContentType, SparseVector
+from src.domain.value_objects import ContentType, SparseVector, TokenUsage
 from src.infrastructure.storage import MinIOStorage
 from src.infrastructure.vectorstores import QdrantVectorStore
 
@@ -245,3 +247,193 @@ class MockDenseEmbedding:
 def mock_dense_embedding() -> MockDenseEmbedding:
     """Create a mock dense embedding service."""
     return MockDenseEmbedding(dimension=1536)
+
+
+# =============================================================================
+# Cost Tracking for LLM Quality Tests
+# =============================================================================
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TokenUsageTracker:
+    """Track token usage across LLM quality tests.
+
+    This class accumulates token usage from generation and evaluation calls,
+    then calculates the estimated cost using TokenUsage.estimated_cost_usd.
+    """
+
+    # Generation (gpt-4o)
+    generation_input_tokens: int = 0
+    generation_output_tokens: int = 0
+
+    # Evaluation/Judge (gpt-4o-mini)
+    evaluation_input_tokens: int = 0
+    evaluation_output_tokens: int = 0
+
+    # Tracking metadata
+    test_count: int = 0
+    _test_names: list[str] = field(default_factory=list)
+
+    def add_generation_usage(
+        self,
+        usage: TokenUsage | None = None,
+        *,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+    ) -> None:
+        """Add token usage from generation (gpt-4o).
+
+        Args:
+            usage: TokenUsage object from GenerationResult.usage (preferred).
+            prompt_tokens: Prompt tokens (fallback if usage not provided).
+            completion_tokens: Completion tokens (fallback if usage not provided).
+        """
+        if usage is not None:
+            self.generation_input_tokens += usage.prompt_tokens
+            self.generation_output_tokens += usage.completion_tokens
+        else:
+            self.generation_input_tokens += prompt_tokens
+            self.generation_output_tokens += completion_tokens
+
+    def add_evaluation_usage(
+        self,
+        usage: TokenUsage | None = None,
+        *,
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+    ) -> None:
+        """Add token usage from evaluation/judge (gpt-4o-mini).
+
+        Args:
+            usage: TokenUsage object (if available).
+            prompt_tokens: Prompt tokens (fallback if usage not provided).
+            completion_tokens: Completion tokens (fallback if usage not provided).
+        """
+        if usage is not None:
+            self.evaluation_input_tokens += usage.prompt_tokens
+            self.evaluation_output_tokens += usage.completion_tokens
+        else:
+            self.evaluation_input_tokens += prompt_tokens
+            self.evaluation_output_tokens += completion_tokens
+
+    def record_test(self, test_name: str) -> None:
+        """Record that a test was executed."""
+        self.test_count += 1
+        self._test_names.append(test_name)
+
+    def calculate_cost(self) -> dict[str, float]:
+        """Calculate estimated cost breakdown using TokenUsage.estimated_cost_usd."""
+        generation_usage = TokenUsage(
+            prompt_tokens=self.generation_input_tokens,
+            completion_tokens=self.generation_output_tokens,
+            total_tokens=self.generation_input_tokens + self.generation_output_tokens,
+            model="gpt-4o",
+        )
+        evaluation_usage = TokenUsage(
+            prompt_tokens=self.evaluation_input_tokens,
+            completion_tokens=self.evaluation_output_tokens,
+            total_tokens=self.evaluation_input_tokens + self.evaluation_output_tokens,
+            model="gpt-4o-mini",
+        )
+        return {
+            "generation_cost": generation_usage.estimated_cost_usd,
+            "evaluation_cost": evaluation_usage.estimated_cost_usd,
+            "total_cost": generation_usage.estimated_cost_usd
+            + evaluation_usage.estimated_cost_usd,
+        }
+
+    def get_summary(self) -> str:
+        """Generate a human-readable cost summary."""
+        costs = self.calculate_cost()
+        total_tokens = (
+            self.generation_input_tokens
+            + self.generation_output_tokens
+            + self.evaluation_input_tokens
+            + self.evaluation_output_tokens
+        )
+
+        return f"""
+=== LLM Quality Test Cost Summary ===
+
+Tests executed: {self.test_count}
+
+Token Usage:
+  Generation (gpt-4o):
+    Input:  {self.generation_input_tokens:,} tokens
+    Output: {self.generation_output_tokens:,} tokens
+  Evaluation (gpt-4o-mini):
+    Input:  {self.evaluation_input_tokens:,} tokens
+    Output: {self.evaluation_output_tokens:,} tokens
+  Total: {total_tokens:,} tokens
+
+Estimated Cost:
+  Generation:  ${costs["generation_cost"]:.4f}
+  Evaluation:  ${costs["evaluation_cost"]:.4f}
+  Total:       ${costs["total_cost"]:.4f}
+
+=====================================
+"""
+
+
+@pytest.fixture(scope="session")
+def token_usage_tracker(request: pytest.FixtureRequest) -> TokenUsageTracker:
+    """Session-scoped token usage tracker.
+
+    This fixture provides a shared tracker across all LLM quality tests
+    in a session. Use it to record token usage from generation and
+    evaluation calls.
+
+    Example:
+        async def test_something(token_usage_tracker, generation_service):
+            result, metrics = await generation_service.generate(query, results)
+            token_usage_tracker.add_generation_usage(
+                result.usage.prompt_tokens,
+                result.usage.completion_tokens,
+            )
+    """
+    tracker = TokenUsageTracker()
+    # Store tracker in pytest config for access in hooks
+    request.config._token_tracker = tracker  # type: ignore[attr-defined]
+    return tracker
+
+
+@pytest.fixture(autouse=True)
+def track_llm_test(
+    request: pytest.FixtureRequest,
+    token_usage_tracker: TokenUsageTracker,
+) -> None:
+    """Auto-use fixture to track LLM quality test execution.
+
+    This fixture automatically records each test that runs with the
+    'llm_quality' marker.
+    """
+    # Only track tests with llm_quality marker
+    if request.node.get_closest_marker("llm_quality") is None:
+        return
+
+    yield
+
+    # Record test completion
+    token_usage_tracker.record_test(request.node.name)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Print cost summary at end of test session."""
+    tracker: TokenUsageTracker | None = getattr(session.config, "_token_tracker", None)
+
+    if tracker is None or tracker.test_count == 0:
+        return
+
+    # Only print if there was actual token usage
+    total_tokens = (
+        tracker.generation_input_tokens
+        + tracker.generation_output_tokens
+        + tracker.evaluation_input_tokens
+        + tracker.evaluation_output_tokens
+    )
+
+    if total_tokens > 0:
+        print(tracker.get_summary())
+        logger.info(tracker.get_summary())

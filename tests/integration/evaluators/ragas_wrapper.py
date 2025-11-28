@@ -7,6 +7,10 @@ Requires: pip install ragas datasets
 (Available via: uv sync --extra eval)
 
 Note: This wrapper is compatible with Ragas 0.3.x API.
+
+Environment variables for threshold configuration:
+    RAGAS_FAITHFULNESS_THRESHOLD: Minimum faithfulness score (default: 0.8)
+    RAGAS_RELEVANCY_THRESHOLD: Minimum relevancy score (default: 0.7)
 """
 
 import logging
@@ -14,6 +18,24 @@ import os
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+# Default thresholds (can be overridden via environment variables)
+DEFAULT_FAITHFULNESS_THRESHOLD = 0.8
+DEFAULT_RELEVANCY_THRESHOLD = 0.7
+
+
+def _get_threshold(env_var: str, default: float) -> float:
+    """Get threshold from environment variable or use default."""
+    value = os.environ.get(env_var)
+    if value is not None:
+        try:
+            return float(value)
+        except ValueError:
+            logger.warning(
+                f"Invalid threshold value for {env_var}: {value}, using default {default}"
+            )
+    return default
+
 
 # Ragas imports - these are optional dependencies
 try:
@@ -66,15 +88,19 @@ class RagasEvaluator:
 
     def __init__(
         self,
-        faithfulness_threshold: float = 0.8,
-        relevancy_threshold: float = 0.7,
+        faithfulness_threshold: float | None = None,
+        relevancy_threshold: float | None = None,
         model: str = "gpt-4o-mini",
     ) -> None:
         """Initialize the Ragas evaluator.
 
         Args:
             faithfulness_threshold: Minimum faithfulness score to pass.
+                If None, reads from RAGAS_FAITHFULNESS_THRESHOLD env var
+                or uses default (0.8).
             relevancy_threshold: Minimum answer relevancy score to pass.
+                If None, reads from RAGAS_RELEVANCY_THRESHOLD env var
+                or uses default (0.7).
             model: OpenAI model to use for evaluation.
 
         Raises:
@@ -84,8 +110,20 @@ class RagasEvaluator:
             msg = "Ragas not installed. Install with: uv sync --extra eval"
             raise ImportError(msg)
 
-        self._faithfulness_threshold = faithfulness_threshold
-        self._relevancy_threshold = relevancy_threshold
+        self._faithfulness_threshold = (
+            faithfulness_threshold
+            if faithfulness_threshold is not None
+            else _get_threshold(
+                "RAGAS_FAITHFULNESS_THRESHOLD", DEFAULT_FAITHFULNESS_THRESHOLD
+            )
+        )
+        self._relevancy_threshold = (
+            relevancy_threshold
+            if relevancy_threshold is not None
+            else _get_threshold(
+                "RAGAS_RELEVANCY_THRESHOLD", DEFAULT_RELEVANCY_THRESHOLD
+            )
+        )
         self._model = model
         self._llm = self._create_llm()
 
@@ -116,6 +154,12 @@ class RagasEvaluator:
 
         Returns:
             RagasScores with evaluation results.
+
+        Note:
+            This method is async for API consistency, but internally calls
+            Ragas's synchronous evaluate() function. For heavy workloads,
+            consider running in an executor or using evaluate_batch().
+            If Ragas provides an async API in the future, this can be updated.
         """
         # Create sample in Ragas 0.3.x format
         sample = SingleTurnSample(
@@ -131,7 +175,9 @@ class RagasEvaluator:
             ResponseRelevancy(llm=self._llm),
         ]
 
-        # Run evaluation
+        # Note: Ragas evaluate() is synchronous. For async compatibility,
+        # we rely on the underlying LLM client handling async internally.
+        # Future improvement: wrap with asyncio.to_thread() for heavy loads.
         result = evaluate(dataset, metrics=metrics)
 
         # Extract scores from result
