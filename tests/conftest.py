@@ -4,7 +4,13 @@ import os
 
 import pytest
 
-from config import DatabaseSettings, MinIOSettings, OpenAISettings, QdrantSettings
+from config import (
+    CohereSettings,
+    DatabaseSettings,
+    MinIOSettings,
+    OpenAISettings,
+    QdrantSettings,
+)
 
 
 @pytest.fixture
@@ -82,6 +88,23 @@ def openai_settings():
         model="gpt-4o",
         embedding_model="text-embedding-3-small",
         embedding_dimensions=1536,
+        max_retries=3,
+        timeout=30.0,
+    )
+
+
+@pytest.fixture
+def cohere_settings():
+    """Create Cohere settings for testing.
+
+    Uses environment variable for API key, or a placeholder for unit tests.
+    """
+    api_key = os.environ.get(
+        "COHERE_API_KEY", "test-api-key"
+    )  # pragma: allowlist secret
+    return CohereSettings(
+        api_key=api_key,  # pragma: allowlist secret
+        rerank_model="rerank-v3.5",
         max_retries=3,
         timeout=30.0,
     )
