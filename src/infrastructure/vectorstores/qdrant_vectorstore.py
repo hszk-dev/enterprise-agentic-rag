@@ -442,7 +442,7 @@ class QdrantVectorStore:
         return search_results
 
     def _payload_to_chunk(
-        self, point_id: str | int, payload: dict[str, Any] | None
+        self, point_id: str | int | UUID, payload: dict[str, Any] | None
     ) -> Chunk:
         """Convert Qdrant payload to Chunk entity.
 
