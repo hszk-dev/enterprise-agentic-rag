@@ -33,6 +33,11 @@ class Document:
         2. mark_processing() -> status=PROCESSING
         3. mark_completed() | mark_failed() -> status=COMPLETED | FAILED
 
+    Note:
+        State transitions are not strictly enforced to support re-processing.
+        A FAILED document can be retried (FAILED -> PROCESSING -> COMPLETED).
+        This flexibility is intentional for operational recovery scenarios.
+
     Attributes:
         id: Unique identifier.
         filename: Original filename.
@@ -296,6 +301,9 @@ class Query:
             raise ValueError(msg)
         if rerank_top_n < 1:
             msg = f"rerank_top_n must be >= 1, got {rerank_top_n}"
+            raise ValueError(msg)
+        if rerank_top_n > top_k:
+            msg = f"rerank_top_n ({rerank_top_n}) cannot exceed top_k ({top_k})"
             raise ValueError(msg)
         if not 0.0 <= alpha <= 1.0:
             msg = f"alpha must be between 0 and 1, got {alpha}"

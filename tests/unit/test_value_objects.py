@@ -102,36 +102,47 @@ class TestTokenUsage:
         with pytest.raises(AttributeError):
             usage.prompt_tokens = 200  # type: ignore[misc]
 
-    def test_estimated_cost_gpt4o(self) -> None:
-        """Test cost estimation for GPT-4o."""
+    def test_estimated_cost_gpt5(self) -> None:
+        """Test cost estimation for GPT-5."""
         usage = TokenUsage(
             prompt_tokens=1_000_000,
             completion_tokens=1_000_000,
             total_tokens=2_000_000,
-            model="gpt-4o",
+            model="gpt-5",
         )
-        # GPT-4o: $2.50/1M input + $10.00/1M output = $12.50
-        assert usage.estimated_cost_usd == pytest.approx(12.50)
+        # GPT-5: $1.25/1M input + $10.00/1M output = $11.25
+        assert usage.estimated_cost_usd == pytest.approx(11.25)
 
-    def test_estimated_cost_gpt4o_mini(self) -> None:
-        """Test cost estimation for GPT-4o-mini."""
+    def test_estimated_cost_gpt5_mini(self) -> None:
+        """Test cost estimation for GPT-5 mini."""
         usage = TokenUsage(
             prompt_tokens=1_000_000,
             completion_tokens=1_000_000,
             total_tokens=2_000_000,
-            model="gpt-4o-mini",
+            model="gpt-5-mini",
         )
-        # GPT-4o-mini: $0.15/1M input + $0.60/1M output = $0.75
-        assert usage.estimated_cost_usd == pytest.approx(0.75)
+        # GPT-5 mini: $0.25/1M input + $2.00/1M output = $2.25
+        assert usage.estimated_cost_usd == pytest.approx(2.25)
+
+    def test_estimated_cost_gpt5_nano(self) -> None:
+        """Test cost estimation for GPT-5 nano."""
+        usage = TokenUsage(
+            prompt_tokens=1_000_000,
+            completion_tokens=1_000_000,
+            total_tokens=2_000_000,
+            model="gpt-5-nano",
+        )
+        # GPT-5 nano: $0.05/1M input + $0.40/1M output = $0.45
+        assert usage.estimated_cost_usd == pytest.approx(0.45)
 
     def test_default_model(self) -> None:
-        """Test default model is gpt-4o."""
+        """Test default model is gpt-5."""
         usage = TokenUsage(
             prompt_tokens=100,
             completion_tokens=50,
             total_tokens=150,
         )
-        assert usage.model == "gpt-4o"
+        assert usage.model == "gpt-5"
 
 
 class TestChunkMetadata:

@@ -312,6 +312,11 @@ class TestQuery:
         with pytest.raises(ValueError, match="alpha must be between 0 and 1"):
             Query.create(text="test", alpha=-0.1)
 
+    def test_create_rerank_top_n_exceeds_top_k_raises(self) -> None:
+        """Test rerank_top_n > top_k raises ValueError."""
+        with pytest.raises(ValueError, match=r"rerank_top_n .* cannot exceed top_k"):
+            Query.create(text="test", top_k=5, rerank_top_n=10)
+
     def test_create_with_user_context(self) -> None:
         """Test creation with user and session IDs."""
         query = Query.create(
@@ -478,17 +483,18 @@ class TestGenerationResult:
             prompt_tokens=1_000_000,
             completion_tokens=1_000_000,
             total_tokens=2_000_000,
-            model="gpt-4o",
+            model="gpt-5",
         )
         result = GenerationResult.create(
             query=sample_query,
             answer="Answer",
             sources=sample_sources,
             usage=usage,
-            model="gpt-4o",
+            model="gpt-5",
             latency_ms=100,
         )
-        assert result.estimated_cost_usd == pytest.approx(12.50)
+        # GPT-5: $1.25/1M input + $10.00/1M output = $11.25
+        assert result.estimated_cost_usd == pytest.approx(11.25)
 
     def test_created_at_is_utc(
         self,
