@@ -46,9 +46,16 @@ async def qdrant_store(integration_qdrant_settings: QdrantSettings):
 
 @pytest.fixture
 def sample_chunks():
-    """Create sample chunks with embeddings for testing."""
+    """Create sample chunks with embeddings for testing.
+
+    Creates embeddings that are directionally distinct for proper cosine similarity testing.
+    Chunk 0: High values in first half of dimensions
+    Chunk 1: High values in middle
+    Chunk 2: High values in last half
+    """
     doc_id = uuid4()
     chunks = []
+    dim = 1536
     for i in range(3):
         chunk = Chunk.create(
             document_id=doc_id,
@@ -58,8 +65,14 @@ def sample_chunks():
             end_char=(i + 1) * 100,
             metadata={"source": "test", "page": i + 1},
         )
-        # Add embeddings
-        chunk.dense_embedding = [0.1 * (i + 1)] * 1536
+        # Create directionally distinct embeddings for cosine similarity
+        # Each chunk has high values in different dimension ranges
+        embedding = [0.01] * dim
+        start_idx = i * (dim // 3)
+        end_idx = (i + 1) * (dim // 3)
+        for j in range(start_idx, end_idx):
+            embedding[j] = 1.0
+        chunk.dense_embedding = embedding
         chunk.sparse_embedding = SparseVector(
             indices=(1, 5, 10 + i),
             values=(0.5, 0.3, 0.2),
@@ -93,8 +106,11 @@ class TestQdrantVectorStoreIntegration:
         stats = await qdrant_store.get_collection_stats()
         assert stats["points_count"] == 3
 
-        # Search with query similar to first chunk
-        query_embedding = [0.1] * 1536
+        # Search with query similar to first chunk (high values in first 1/3 dimensions)
+        dim = 1536
+        query_embedding = [0.01] * dim
+        for j in range(dim // 3):
+            query_embedding[j] = 1.0
         results = await qdrant_store.search(query_embedding, top_k=5)
 
         assert len(results) == 3

@@ -34,7 +34,29 @@ def qdrant_settings():
 
 @pytest.fixture
 def database_settings():
-    """Create database settings for testing."""
+    """Create database settings for testing.
+
+    Uses DATABASE_URL environment variable if set (for CI),
+    otherwise uses default local development settings.
+    """
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        # Parse DATABASE_URL format  # pragma: allowlist secret
+        # Remove the driver prefix for parsing
+        url = database_url.replace("postgresql+asyncpg://", "")
+        user_pass, host_db = url.split("@")
+        user, password = user_pass.split(":")
+        host_port, database = host_db.split("/")
+        host, port = host_port.split(":") if ":" in host_port else (host_port, "5432")
+        return DatabaseSettings(
+            host=host,
+            port=int(port),
+            user=user,
+            password=password,  # pragma: allowlist secret
+            database=database,
+            pool_size=5,
+            max_overflow=10,
+        )
     return DatabaseSettings(
         host="localhost",
         port=5432,
