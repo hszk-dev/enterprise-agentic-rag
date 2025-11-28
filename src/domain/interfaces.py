@@ -338,6 +338,13 @@ class VectorStore(Protocol):
         """
         ...
 
+    async def close(self) -> None:
+        """Close vector store connections.
+
+        Should be called when the application shuts down.
+        """
+        ...
+
 
 # =============================================================================
 # Embedding Interfaces

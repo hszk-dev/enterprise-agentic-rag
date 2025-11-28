@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Shutdown
     logger.info("Shutting down Enterprise Agentic RAG Platform...")
+    await vector_store.close()
     await repo.close()
 
 
@@ -84,13 +85,13 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if settings.debug else None,
     )
 
-    # Add CORS middleware
+    # Add CORS middleware (configured via environment variables)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=settings.cors.allowed_origins,
+        allow_credentials=settings.cors.allow_credentials,
+        allow_methods=settings.cors.allowed_methods,
+        allow_headers=settings.cors.allowed_headers,
     )
 
     # Register exception handlers

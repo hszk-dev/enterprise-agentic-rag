@@ -3,10 +3,18 @@
 Provides endpoints for monitoring application health and readiness.
 """
 
+import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, status
 from pydantic import BaseModel
+
+from src.presentation.api.dependencies import (
+    DocumentRepositoryDep,
+    VectorStoreDep,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -84,27 +92,40 @@ async def liveness_probe() -> HealthResponse:
     summary="Readiness probe",
     description="Kubernetes readiness probe endpoint.",
 )
-async def readiness_probe() -> ReadinessResponse:
+async def readiness_probe(
+    document_repo: DocumentRepositoryDep,
+    vector_store: VectorStoreDep,
+) -> ReadinessResponse:
     """Kubernetes readiness probe.
 
-    Checks if all dependencies are available.
+    Checks if all dependencies are available by performing actual
+    connectivity tests to the database and vector store.
+
+    Args:
+        document_repo: Injected document repository.
+        vector_store: Injected vector store.
 
     Returns:
         ReadinessResponse with individual component statuses.
-
-    Note:
-        In a production setup, this would check:
-        - Database connectivity
-        - Vector store connectivity
-        - Redis connectivity
-        - External API availability
     """
-    # TODO: Add actual dependency checks
-    checks = {
-        "database": True,
-        "vector_store": True,
-        "cache": True,
-    }
+    checks: dict[str, bool] = {}
+
+    # Check database connectivity
+    try:
+        await document_repo.count()
+        checks["database"] = True
+    except Exception as e:
+        logger.warning(f"Database health check failed: {e}")
+        checks["database"] = False
+
+    # Check vector store connectivity
+    try:
+        await vector_store.get_collection_stats()
+        checks["vector_store"] = True
+    except Exception as e:
+        logger.warning(f"Vector store health check failed: {e}")
+        checks["vector_store"] = False
+
     return ReadinessResponse(
         ready=all(checks.values()),
         checks=checks,
