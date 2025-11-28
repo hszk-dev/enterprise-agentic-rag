@@ -280,7 +280,8 @@ class VectorStore(Protocol):
         """Hybrid search combining dense and sparse vectors.
 
         Args:
-            query_text: Original query text.
+            query_text: Original query text. Used for logging, debugging,
+                and some vector stores that support text-based fusion search.
             query_dense_embedding: Query dense embedding.
             query_sparse_embedding: Query sparse embedding.
             top_k: Number of results to return.

@@ -52,6 +52,8 @@ class Document:
     content_type: ContentType
     size_bytes: int
     status: DocumentStatus = DocumentStatus.PENDING
+    # NOTE: Any is used here because metadata is user-provided and schema-less.
+    # Users can attach arbitrary key-value pairs (author, department, tags, etc.).
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=_utc_now)
     updated_at: datetime = field(default_factory=_utc_now)
@@ -156,6 +158,8 @@ class Chunk:
     chunk_index: int
     start_char: int
     end_char: int
+    # NOTE: Any is used here because metadata is user-provided and schema-less.
+    # Users can attach arbitrary key-value pairs (page_number, section, etc.).
     metadata: dict[str, Any] = field(default_factory=dict)
     dense_embedding: list[float] | None = None
     sparse_embedding: SparseVector | None = None
@@ -174,15 +178,28 @@ class Chunk:
 
         Args:
             document_id: Parent document ID.
-            content: Text content.
-            chunk_index: Position in document.
-            start_char: Start offset.
-            end_char: End offset.
-            metadata: Optional metadata.
+            content: Text content (must be non-empty).
+            chunk_index: Position in document (0-indexed, must be >= 0).
+            start_char: Start character offset in original document.
+            end_char: End character offset (must be > start_char).
+            metadata: Optional user-provided metadata.
 
         Returns:
             New Chunk instance.
+
+        Raises:
+            ValueError: If content is empty, chunk_index < 0, or end_char <= start_char.
         """
+        if not content:
+            msg = "Chunk content cannot be empty"
+            raise ValueError(msg)
+        if chunk_index < 0:
+            msg = f"chunk_index must be >= 0, got {chunk_index}"
+            raise ValueError(msg)
+        if end_char <= start_char:
+            msg = f"end_char ({end_char}) must be > start_char ({start_char})"
+            raise ValueError(msg)
+
         return cls(
             id=uuid4(),
             document_id=document_id,

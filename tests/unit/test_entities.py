@@ -209,6 +209,62 @@ class TestChunk:
         assert chunk.dense_embedding == dense
         assert chunk.sparse_embedding is None
 
+    def test_create_empty_content_raises(self) -> None:
+        """Test empty content raises ValueError."""
+        with pytest.raises(ValueError, match="Chunk content cannot be empty"):
+            Chunk.create(
+                document_id=uuid4(),
+                content="",
+                chunk_index=0,
+                start_char=0,
+                end_char=0,
+            )
+
+    def test_create_negative_chunk_index_raises(self) -> None:
+        """Test negative chunk_index raises ValueError."""
+        with pytest.raises(ValueError, match="chunk_index must be >= 0"):
+            Chunk.create(
+                document_id=uuid4(),
+                content="Test content",
+                chunk_index=-1,
+                start_char=0,
+                end_char=12,
+            )
+
+    def test_create_invalid_char_range_raises(self) -> None:
+        """Test end_char <= start_char raises ValueError."""
+        with pytest.raises(ValueError, match=r"end_char .* must be > start_char"):
+            Chunk.create(
+                document_id=uuid4(),
+                content="Test",
+                chunk_index=0,
+                start_char=10,
+                end_char=5,
+            )
+
+    def test_create_equal_char_range_raises(self) -> None:
+        """Test end_char == start_char raises ValueError."""
+        with pytest.raises(ValueError, match=r"end_char .* must be > start_char"):
+            Chunk.create(
+                document_id=uuid4(),
+                content="Test",
+                chunk_index=0,
+                start_char=5,
+                end_char=5,
+            )
+
+    def test_create_with_default_metadata(self) -> None:
+        """Test creation with metadata=None uses empty dict."""
+        chunk = Chunk.create(
+            document_id=uuid4(),
+            content="Test content",
+            chunk_index=0,
+            start_char=0,
+            end_char=12,
+            metadata=None,
+        )
+        assert chunk.metadata == {}
+
 
 class TestQuery:
     """Tests for Query entity."""
@@ -327,6 +383,24 @@ class TestSearchResult:
             rerank_score=None,
         )
         assert result.display_score == 0.0
+
+    def test_display_score_at_boundary_zero(self, sample_chunk: Chunk) -> None:
+        """Test display_score handles exactly 0.0."""
+        result = SearchResult(
+            chunk=sample_chunk,
+            score=0.0,
+            rerank_score=None,
+        )
+        assert result.display_score == 0.0
+
+    def test_display_score_at_boundary_one(self, sample_chunk: Chunk) -> None:
+        """Test display_score handles exactly 1.0."""
+        result = SearchResult(
+            chunk=sample_chunk,
+            score=1.0,
+            rerank_score=None,
+        )
+        assert result.display_score == 1.0
 
 
 class TestGenerationResult:

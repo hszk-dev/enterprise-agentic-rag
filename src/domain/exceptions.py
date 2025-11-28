@@ -48,6 +48,17 @@ class StorageUploadError(StorageError):
         self.code = "STORAGE_UPLOAD_ERROR"
 
 
+class RepositoryError(DomainError):
+    """Database repository operation failed.
+
+    Raised when PostgreSQL or other database operations fail.
+    """
+
+    def __init__(self, message: str, operation: str | None = None) -> None:
+        self.operation = operation
+        super().__init__(message, "REPOSITORY_ERROR")
+
+
 class DocumentNotFoundError(DomainError):
     """Document not found in the system."""
 
