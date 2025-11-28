@@ -100,9 +100,9 @@ class TestCohereRerankerIntegration:
         # Request different top_n values
         for top_n in [1, 2, 3, 5]:
             reranked = await reranker.rerank(query, sample_search_results, top_n=top_n)
-            assert (
-                len(reranked) == top_n
-            ), f"Expected {top_n} results, got {len(reranked)}"
+            assert len(reranked) == top_n, (
+                f"Expected {top_n} results, got {len(reranked)}"
+            )
 
     async def test_rerank_top_n_exceeds_results(
         self,
@@ -127,9 +127,9 @@ class TestCohereRerankerIntegration:
 
         for result in reranked:
             assert result.rerank_score is not None
-            assert (
-                0.0 <= result.rerank_score <= 1.0
-            ), f"Score {result.rerank_score} out of range [0, 1]"
+            assert 0.0 <= result.rerank_score <= 1.0, (
+                f"Score {result.rerank_score} out of range [0, 1]"
+            )
 
     async def test_rerank_preserves_original_score(
         self,
@@ -157,9 +157,9 @@ class TestCohereRerankerIntegration:
 
         expected_ranks = list(range(1, len(reranked) + 1))
         actual_ranks = [r.rank for r in reranked]
-        assert (
-            actual_ranks == expected_ranks
-        ), f"Ranks {actual_ranks} != {expected_ranks}"
+        assert actual_ranks == expected_ranks, (
+            f"Ranks {actual_ranks} != {expected_ranks}"
+        )
 
     async def test_rerank_relevant_first(
         self,
@@ -173,9 +173,9 @@ class TestCohereRerankerIntegration:
         # Python-related docs should be in top results
         top_3_contents = [r.chunk.content for r in reranked[:3]]
         python_in_top_3 = sum(1 for c in top_3_contents if "Python" in c)
-        assert (
-            python_in_top_3 >= 2
-        ), f"Expected >=2 Python docs in top 3, got {python_in_top_3}"
+        assert python_in_top_3 >= 2, (
+            f"Expected >=2 Python docs in top 3, got {python_in_top_3}"
+        )
 
     async def test_rerank_irrelevant_lower(
         self,
@@ -267,9 +267,9 @@ class TestCohereRerankerIntegration:
         # Both Python docs (English and Japanese) should rank high
         top_2_contents = [r.chunk.content for r in reranked[:2]]
         python_count = sum(1 for c in top_2_contents if "Python" in c)
-        assert (
-            python_count == 2
-        ), f"Expected both Python docs in top 2, got {python_count}"
+        assert python_count == 2, (
+            f"Expected both Python docs in top 2, got {python_count}"
+        )
 
     async def test_rerank_empty_results(
         self,

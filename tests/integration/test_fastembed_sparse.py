@@ -94,9 +94,9 @@ class TestFastEmbedSparseIntegration:
         overlap_1_3 = len(set(emb1.indices) & set(emb3.indices))
 
         # Similar texts (both about Python) should have more overlapping terms
-        assert (
-            overlap_1_2 > overlap_1_3
-        ), f"Expected overlap_1_2 ({overlap_1_2}) > overlap_1_3 ({overlap_1_3})"
+        assert overlap_1_2 > overlap_1_3, (
+            f"Expected overlap_1_2 ({overlap_1_2}) > overlap_1_3 ({overlap_1_3})"
+        )
 
     async def test_different_texts_have_different_vectors(
         self, sparse_embedding_service: FastEmbedSparseEmbeddingService

@@ -407,9 +407,9 @@ class TestSearchServiceE2E:
             + metrics.rerank_latency_ms
         )
         # Allow for small overhead (10%)
-        assert (
-            metrics.total_latency_ms >= component_sum * 0.9
-        ), f"Total ({metrics.total_latency_ms}ms) < components ({component_sum}ms)"
+        assert metrics.total_latency_ms >= component_sum * 0.9, (
+            f"Total ({metrics.total_latency_ms}ms) < components ({component_sum}ms)"
+        )
 
         # Counts should be accurate
         assert metrics.initial_results_count >= metrics.final_results_count
