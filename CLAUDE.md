@@ -381,6 +381,11 @@ MinIOSettings(
 2. **Incremental Changes:** 大きな変更は小さなステップに分割する。
 3. **Test Before Commit:** 変更後は必ず関連テストを実行。
 4. **Observe Boundaries:** 各層の境界を厳守。domain に infrastructure を import しない。
+5. **Knowledge Cutoff Awareness:** Claudeのナレッジカットオフ（2025年1月）以降の情報は不正確な可能性がある。以下の場合は必ずWeb検索で最新情報を確認すること：
+   - API料金・価格情報
+   - 最新のモデル名・バージョン（GPT-5, Claude Sonnet 4.5 等）
+   - ライブラリの最新バージョン・API変更
+   - 設計ドキュメントの情報を「古い」「架空」と判断する前に検証
 
 ## Common Tasks Reference
 
