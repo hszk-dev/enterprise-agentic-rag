@@ -391,15 +391,45 @@ class IngestionService:
         return document
 
     async def _handle_failure(self, document: Document, error: Exception) -> None:
-        """補償トランザクション"""
+        """補償トランザクション（DLQフォールバック付き）"""
         document.mark_failed(str(error))
         await self.document_repo.update(document)
 
         # Qdrantの不完全なチャンクを削除
         try:
             await self.vector_store.delete_by_document_id(document.id)
-        except Exception:
-            logger.warning(f"Failed to cleanup chunks for {document.id}")
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to cleanup chunks for {document.id}: {cleanup_error}")
+            # DLQ（Dead Letter Queue）に追加して後続の Sweeper Job で処理
+            await self.cleanup_queue.push(CleanupTask(
+                document_id=document.id,
+                task_type="vector_store_cleanup",
+                created_at=datetime.utcnow(),
+                retry_count=0,
+            ))
+```
+
+### Cleanup Dead Letter Queue Interface
+
+```python
+# src/domain/interfaces.py に追加
+
+@dataclass
+class CleanupTask:
+    """クリーンアップタスク"""
+    document_id: UUID
+    task_type: str  # "vector_store_cleanup", "blob_storage_cleanup"
+    created_at: datetime
+    retry_count: int = 0
+    max_retries: int = 3
+
+class CleanupQueue(Protocol):
+    """補償処理失敗時のDLQ"""
+    async def push(self, task: CleanupTask) -> None: ...
+    async def pop(self, batch_size: int = 10) -> list[CleanupTask]: ...
+    async def ack(self, task: CleanupTask) -> None: ...
+    async def nack(self, task: CleanupTask) -> None: ...  # リトライ用に戻す
+    async def length(self) -> int: ...
 ```
 
 ## Consequences
@@ -434,6 +464,14 @@ class IngestionService:
 - **リスク:** OpenAI/Cohere APIの可用性・料金変更
 - **影響:** サービス停止、コスト増
 - **対策:** Fallback戦略、将来的なAWS Bedrock移行設計
+
+#### 4. 補償トランザクションの失敗 (Medium)
+- **リスク:** `_handle_failure` 内のクリーンアップ処理自体が失敗
+- **影響:** Orphan Data（迷子データ）がVector Store/Object Storageに残留し、ストレージコストの増加や検索ノイズの原因になる
+- **対策:**
+  - Cleanup Dead Letter Queue (DLQ): 補償失敗したドキュメントIDをRedisリストに保存
+  - Sweeper Job: 定期バッチで `status=FAILED` かつ Vector Store にデータが残っているドキュメントを物理削除
+  - アラート: DLQにデータが蓄積した場合に通知
 
 ## Implementation Order
 
@@ -476,9 +514,16 @@ class IngestionService:
 - [ ] Document upload endpoint
 - [ ] Query endpoint
 
-### Step 7: 検証
+### Step 7: Cleanup Infrastructure
+- [ ] CleanupQueue インターフェース定義
+- [ ] Redis CleanupQueue 実装
+- [ ] Sweeper Job 実装（定期バッチ）
+- [ ] DLQアラート設定
+
+### Step 8: 検証
 - [ ] 日本語キーワード検索テスト
 - [ ] エラーハンドリングテスト
+- [ ] 補償トランザクション失敗→DLQ→Sweeper フローテスト
 
 ## AWS Bedrock Migration Strategy (将来対応)
 
