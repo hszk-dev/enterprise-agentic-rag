@@ -310,6 +310,59 @@ test(search): add unit tests for re-ranking
 - コミットメッセージやPRに「🤖 Generated with Claude Code」や「Co-Authored-By: Claude」などのAI生成署名を**含めない**
 - 人間が書いたコミットと同じ形式で記述する
 
+### Atomic Commit Guidelines (Claude向け)
+
+コミットは**論理的な単位（Atomic）**で分割する。1つのコミットは1つの責務を持つ。
+
+#### コミット分割の基準
+
+| 分類 | 説明 | 例 |
+|------|------|-----|
+| **infra** | Docker, CI/CD, 環境設定 | `docker-compose.yml`, `.env.example` |
+| **config** | アプリケーション設定 | `config/settings.py` |
+| **domain** | ドメイン層（エンティティ、インターフェース、例外） | `src/domain/interfaces.py`, `src/domain/exceptions.py` |
+| **実装** | Infrastructure層の具体実装 | `src/infrastructure/storage/minio_storage.py` |
+| **test** | テストコード | `tests/unit/`, `tests/integration/` |
+| **deps** | 依存関係 | `pyproject.toml`, `uv.lock` |
+
+#### 実装例: Step 0 (MinIO Storage) のコミット履歴
+
+```
+1. feat(infra): add MinIO service to docker-compose
+2. feat(config): add Pydantic settings with MinIO configuration
+3. feat(domain): add BlobStorage interface and storage exceptions
+4. feat(storage): implement MinIO blob storage
+5. test(storage): add unit and integration tests for MinIO storage
+6. chore(deps): add minio dependency for S3-compatible storage
+```
+
+#### 原則
+1. **依存関係順にコミット:** 下位レイヤー（domain）→ 上位レイヤー（infrastructure）→ テスト → 依存関係
+2. **1コミット1責務:** 設定と実装を混ぜない、テストは実装と別コミット
+3. **レビュー容易性:** 各コミットが独立してレビュー可能であること
+
+### Pre-commit Hook対応 (Claude向け)
+
+このプロジェクトではpre-commit hooksが設定されており、コミット時に自動チェックが実行される。
+
+#### 1. Secret Detection (`detect-secrets`)
+- テストファイル内の`secret_key`などのキーワードがfalse positiveとして検出される
+- 対策: テスト用のダミー値には`# pragma: allowlist secret`コメントを付与する
+
+```python
+# 例: テストファイル内
+MinIOSettings(
+    endpoint="localhost:9000",
+    access_key="testuser",
+    secret_key="testpass",  # pragma: allowlist secret
+    bucket_name="test-bucket",
+)
+```
+
+#### 2. `.secrets.baseline`の更新
+- hookが`.secrets.baseline`を更新した場合、そのファイルも一緒にコミットする必要がある
+- エラーメッセージ: `Please git add .secrets.baseline, thank you.`
+
 ## Important Constraints
 
 1. **No Hallucination:** 不明な点はコードを読んで確認する。推測で実装しない。
