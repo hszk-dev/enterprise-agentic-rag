@@ -105,7 +105,12 @@ class MinIOSettings(BaseSettings):
 class OpenAISettings(BaseSettings):
     """OpenAI API settings."""
 
-    model_config = SettingsConfigDict(env_prefix="OPENAI_")
+    model_config = SettingsConfigDict(
+        env_prefix="OPENAI_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: SecretStr = SecretStr("")
     model: str = "gpt-4o"
