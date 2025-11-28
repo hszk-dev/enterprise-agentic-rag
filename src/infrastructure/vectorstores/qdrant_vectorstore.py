@@ -397,27 +397,6 @@ class QdrantVectorStore:
             )
         return Filter(must=conditions) if conditions else Filter()
 
-    def _convert_results(self, results: list[models.ScoredPoint]) -> list[SearchResult]:
-        """Convert Qdrant search results to domain SearchResults.
-
-        Args:
-            results: Qdrant ScoredPoint results.
-
-        Returns:
-            List of domain SearchResult objects.
-        """
-        search_results = []
-        for rank, point in enumerate(results, start=1):
-            chunk = self._payload_to_chunk(point.id, point.payload)
-            search_results.append(
-                SearchResult(
-                    chunk=chunk,
-                    score=point.score,
-                    rank=rank,
-                )
-            )
-        return search_results
-
     def _convert_query_results(
         self, results: list[models.ScoredPoint]
     ) -> list[SearchResult]:

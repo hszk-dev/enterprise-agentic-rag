@@ -201,6 +201,9 @@ class PostgresDocumentRepository:
 
         Returns:
             Document if found, None otherwise.
+
+        Raises:
+            RepositoryError: If database query fails.
         """
         try:
             async with self._session_factory() as session:
@@ -211,7 +214,8 @@ class PostgresDocumentRepository:
                 return model.to_entity() if model else None
         except Exception as e:
             logger.error(f"Failed to get document {document_id}: {e}")
-            return None
+            msg = f"Failed to get document: {e}"
+            raise RepositoryError(msg, operation="get_by_id") from e
 
     async def list(
         self,

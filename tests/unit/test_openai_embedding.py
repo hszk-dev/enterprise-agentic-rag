@@ -146,32 +146,22 @@ class TestOpenAIEmbeddingServiceUnit:
 
             assert "empty" in str(exc_info.value).lower()
 
-    async def test_embed_texts_mixed_empty_returns_zero_vectors(
+    async def test_embed_texts_mixed_empty_raises_error(
         self, mock_openai_settings: OpenAISettings
     ) -> None:
-        """Test embed_texts handles mixed empty and non-empty texts."""
+        """Test embed_texts raises error for mixed empty and non-empty texts."""
         with patch(
             "src.infrastructure.embeddings.openai_embedding.AsyncOpenAI"
         ) as mock_client_class:
-            # Setup mock response for non-empty texts
-            mock_embedding = MagicMock(embedding=[0.5] * 1536)
-            mock_response = MagicMock()
-            mock_response.data = [mock_embedding]
-            mock_response.usage.total_tokens = 10
-
             mock_client = AsyncMock()
-            mock_client.embeddings.create = AsyncMock(return_value=mock_response)
             mock_client_class.return_value = mock_client
 
             service = OpenAIEmbeddingService(mock_openai_settings)
-            result = await service.embed_texts(["", "Valid text", ""])
 
-            assert len(result) == 3
-            # Empty texts get zero vectors
-            assert result[0] == [0.0] * 1536
-            assert result[2] == [0.0] * 1536
-            # Non-empty text gets real embedding
-            assert result[1] == [0.5] * 1536
+            with pytest.raises(EmbeddingError) as exc_info:
+                await service.embed_texts(["", "Valid text", ""])
+
+            assert "index 0" in str(exc_info.value)
 
     async def test_close_closes_client(
         self, mock_openai_settings: OpenAISettings

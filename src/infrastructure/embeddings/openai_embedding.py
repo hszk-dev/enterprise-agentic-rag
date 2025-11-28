@@ -6,7 +6,7 @@ This module provides dense embedding generation using OpenAI's text-embedding-3-
 import logging
 from typing import TYPE_CHECKING
 
-from openai import AsyncOpenAI
+from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from config.settings import OpenAISettings
 
 logger = logging.getLogger(__name__)
+
+# Retryable OpenAI exceptions (network issues, rate limits, timeouts)
+RETRYABLE_EXCEPTIONS = (APIConnectionError, RateLimitError, APITimeoutError)
 
 
 class OpenAIEmbeddingService:
@@ -59,7 +62,7 @@ class OpenAIEmbeddingService:
         return self._dimension
 
     @retry(
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         reraise=True,
@@ -99,7 +102,7 @@ class OpenAIEmbeddingService:
             raise EmbeddingError(msg) from e
 
     @retry(
-        retry=retry_if_exception_type(Exception),
+        retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         reraise=True,
@@ -121,25 +124,19 @@ class OpenAIEmbeddingService:
         if not texts:
             return []
 
-        # Filter empty texts but track their positions
-        non_empty_texts: list[tuple[int, str]] = []
+        # Validate all texts are non-empty
         for i, text in enumerate(texts):
-            if text and text.strip():
-                non_empty_texts.append((i, text))
-
-        if not non_empty_texts:
-            msg = "All texts are empty"
-            raise EmbeddingError(msg)
+            if not text or not text.strip():
+                msg = f"Cannot embed empty text at index {i}"
+                raise EmbeddingError(msg)
 
         try:
             # Batch texts (OpenAI has a limit of ~2048 texts per request)
             batch_size = 2048
-            all_embeddings: dict[int, list[float]] = {}
+            all_embeddings: list[list[float]] = []
 
-            for batch_start in range(0, len(non_empty_texts), batch_size):
-                batch = non_empty_texts[batch_start : batch_start + batch_size]
-                batch_texts = [t[1] for t in batch]
-                batch_indices = [t[0] for t in batch]
+            for batch_start in range(0, len(texts), batch_size):
+                batch_texts = texts[batch_start : batch_start + batch_size]
 
                 response = await self._client.embeddings.create(
                     model=self._model,
@@ -147,28 +144,16 @@ class OpenAIEmbeddingService:
                     dimensions=self._dimension,
                 )
 
-                # Map embeddings back to original indices
-                for embedding_data, original_idx in zip(
-                    response.data, batch_indices, strict=True
-                ):
-                    all_embeddings[original_idx] = embedding_data.embedding
+                # OpenAI returns embeddings in the same order as input
+                for embedding_data in response.data:
+                    all_embeddings.append(embedding_data.embedding)
 
                 logger.debug(
                     f"Generated batch embeddings for {len(batch_texts)} texts, "
                     f"tokens: {response.usage.total_tokens}"
                 )
 
-            # Build result list in original order
-            # For empty texts, we return zero vectors
-            result: list[list[float]] = []
-            for i in range(len(texts)):
-                if i in all_embeddings:
-                    result.append(all_embeddings[i])
-                else:
-                    # Empty text gets zero vector
-                    result.append([0.0] * self._dimension)
-
-            return result
+            return all_embeddings
 
         except Exception as e:
             logger.error(f"Failed to generate batch embeddings: {e}")
