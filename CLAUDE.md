@@ -78,9 +78,10 @@ Design → Context → Implementation → Verification → Review → Merge
 ### Phase 4: Verification (品質保証)
 
 ```bash
-make format   # コードフォーマット
-make lint     # リンターチェック
-make test     # 全テスト実行
+make format      # コードフォーマット
+make lint        # リンターチェック
+make type-check  # 型チェック (mypy)
+make test        # 全テスト実行
 ```
 
 ### Phase 5: Review (PR作成 & セルフレビュー)
@@ -100,7 +101,7 @@ make test     # 全テスト実行
 1. **Design First:** 重要なアーキテクチャ変更は先にADRを作成
 2. **Context Aware:** 実装前にSerenaで既存コードと影響範囲を分析
 3. **Test Driven:** ビジネスロジック実装前にユニットテストを書く
-4. **Verification:** コミット前に必ず `make test` と `make lint` を実行
+4. **Verification:** コミット前に必ず `make lint`、`make type-check`、`make test` を実行
 5. **PR Standard:** PRテンプレートを使用、ADR/Issueへのリンクを含める
 
 ## Architecture Rules (Strict Enforcement)
@@ -195,6 +196,7 @@ make run                   # Start dev server
 make test                  # Run all tests
 make test-unit             # Run unit tests only
 make lint                  # Run linter
+make type-check            # Run type checking with mypy
 make format                # Format code
 
 # Docker

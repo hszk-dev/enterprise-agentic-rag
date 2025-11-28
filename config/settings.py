@@ -105,7 +105,12 @@ class MinIOSettings(BaseSettings):
 class OpenAISettings(BaseSettings):
     """OpenAI API settings."""
 
-    model_config = SettingsConfigDict(env_prefix="OPENAI_")
+    model_config = SettingsConfigDict(
+        env_prefix="OPENAI_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: SecretStr = SecretStr("")
     model: str = "gpt-4o"
@@ -119,7 +124,12 @@ class OpenAISettings(BaseSettings):
 class CohereSettings(BaseSettings):
     """Cohere API settings."""
 
-    model_config = SettingsConfigDict(env_prefix="COHERE_")
+    model_config = SettingsConfigDict(
+        env_prefix="COHERE_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     api_key: SecretStr = SecretStr("")
     rerank_model: str = "rerank-v3.5"
@@ -159,6 +169,17 @@ class SearchSettings(BaseSettings):
     min_score_threshold: float = 0.0
 
 
+class CORSSettings(BaseSettings):
+    """CORS (Cross-Origin Resource Sharing) settings."""
+
+    model_config = SettingsConfigDict(env_prefix="CORS_")
+
+    allowed_origins: list[str] = Field(default=["*"])
+    allow_credentials: bool = True
+    allowed_methods: list[str] = Field(default=["*"])
+    allowed_headers: list[str] = Field(default=["*"])
+
+
 class Settings(BaseSettings):
     """Root application settings.
 
@@ -191,6 +212,7 @@ class Settings(BaseSettings):
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     chunking: ChunkingSettings = Field(default_factory=ChunkingSettings)
     search: SearchSettings = Field(default_factory=SearchSettings)
+    cors: CORSSettings = Field(default_factory=CORSSettings)
 
     @field_validator("log_level")
     @classmethod

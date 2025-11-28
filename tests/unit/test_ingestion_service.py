@@ -16,7 +16,8 @@ from src.domain.value_objects import ContentType, DocumentStatus
 def mock_document_repo():
     """Create mock DocumentRepository."""
     repo = AsyncMock()
-    repo.save = AsyncMock()
+    # save() returns the document that was passed to it
+    repo.save = AsyncMock(side_effect=lambda doc: doc)
     repo.get_by_id = AsyncMock()
     repo.update = AsyncMock()
     repo.delete = AsyncMock(return_value=True)

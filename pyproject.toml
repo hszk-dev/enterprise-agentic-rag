@@ -148,6 +148,8 @@ known-first-party = ["src", "config"]
 "tests/integration/evaluators/ragas_wrapper.py" = ["PLC0415"]  # Lazy import for optional Ragas
 "src/infrastructure/embeddings/fastembed_sparse.py" = ["PLC0415"]  # Lazy import for optional dependency
 "src/application/services/ingestion_service.py" = ["TCH001"]
+"src/presentation/api/dependencies.py" = ["B008"]  # FastAPI Depends() pattern
+"src/main.py" = ["ARG001"]  # FastAPI exception handlers require unused request param
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
