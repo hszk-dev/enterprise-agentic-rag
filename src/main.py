@@ -22,6 +22,10 @@ from src.domain.exceptions import (
     StorageError,
     UnsupportedContentTypeError,
 )
+from src.presentation.api.dependencies import (
+    get_document_repository,
+    get_vector_store,
+)
 from src.presentation.api.v1 import documents, health, query
 
 # Configure logging
@@ -43,10 +47,21 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(f"Environment: debug={settings.debug}, log_level={settings.log_level}")
 
+    # Initialize database schema
+    repo = get_document_repository()
+    await repo.initialize()
+    logger.info("Database initialized successfully")
+
+    # Initialize vector store collection
+    vector_store = get_vector_store()
+    await vector_store.initialize()
+    logger.info("Vector store initialized successfully")
+
     yield
 
     # Shutdown
     logger.info("Shutting down Enterprise Agentic RAG Platform...")
+    await repo.close()
 
 
 def create_app() -> FastAPI:
