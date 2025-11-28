@@ -9,7 +9,7 @@ import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from unstructured.partition.auto import partition
 
@@ -264,7 +264,7 @@ class UnstructuredParser(DocumentParser):
         suffix = path.suffix.lower()
         return extension_map.get(suffix, "application/octet-stream")
 
-    def _elements_to_text(self, elements: list) -> str:
+    def _elements_to_text(self, elements: list[Any]) -> str:
         """Convert unstructured elements to plain text.
 
         Args:

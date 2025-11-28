@@ -19,6 +19,7 @@ from src.domain.interfaces import (
     SparseEmbeddingService,
     VectorStore,
 )
+from src.domain.value_objects import SparseVector
 
 logger = logging.getLogger(__name__)
 
@@ -310,9 +311,11 @@ class IngestionService:
             dense_embeddings = await self._dense_embedding.embed_texts(texts)
 
             # Generate sparse embeddings if available
-            sparse_embeddings: list[dict[int, float] | None] = []
+            sparse_embeddings: list[SparseVector | None]
             if self._sparse_embedding:
-                sparse_embeddings = await self._sparse_embedding.embed_texts(texts)
+                sparse_embeddings = list(
+                    await self._sparse_embedding.embed_texts(texts)
+                )
             else:
                 sparse_embeddings = [None] * len(texts)
 
