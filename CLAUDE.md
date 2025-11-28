@@ -1,0 +1,308 @@
+# Enterprise Agentic RAG Platform - Project Context
+
+## Core Philosophy
+
+**L5 Quality:** Reliability, Observability, and Scalability over quick hacks.
+
+## Overview
+
+L5（シニアエンジニア）レベルの品質を目指す、Advanced RAGおよびAgentic Workflowプラットフォーム。
+Python (FastAPI), LangGraph, Qdrant, Langfuse を使用。
+
+### Project Goals
+- **Phase 1:** Core RAG with Hybrid Search (Vector + Keyword)
+- **Phase 2:** Agentic Workflow with Query Decomposition
+- **Phase 3:** Observability & Evaluation Integration
+- **Phase 4:** Reliability & Frontend
+
+## Model Context Protocol (MCP) - AI開発支援
+
+このプロジェクトでは以下のMCPサーバーを活用し、AIによる正確なコーディングを実現する。
+
+### 利用可能なMCPサーバー
+
+| Server | 役割 | 主な用途 |
+|--------|------|----------|
+| **Serena** | LSP + 長期記憶 | コード解析、定義ジャンプ、参照検索。ハルシネーション防止 |
+| **PostgreSQL** | DB管理 | スキーマ確認、クエリ検証 |
+| **Qdrant** | Vector DB管理 | コレクション操作、検索テスト |
+
+### MCP利用ガイドライン (Claude向け)
+
+#### 1. Serena (`mcp__serena`)
+- **コード編集前に必ず使用:** `find_symbol` や `get_hover_info` で既存の実装を確認
+- **関数シグネチャを推測しない:** Serenaで検証してから使用
+- **新しい依存関係:** 追加前に既存の使用パターンを確認
+
+```
+# 使用例
+- get_codebase_symbols: プロジェクト全体の構造把握
+- find_symbol: 特定のクラス/関数の検索
+- get_hover_info: 型情報・ドキュメント取得
+- find_references: 参照箇所の特定
+```
+
+#### 2. PostgreSQL (`mcp__postgres`)
+- SQLクエリ作成前にスキーマを確認
+- マイグレーション作成時にテーブル構造を検証
+
+#### 3. Qdrant (`mcp__qdrant`)
+- ベクトル検索のテスト・デバッグ
+- コレクションの状態確認
+
+## Development Workflow (AIネイティブ開発)
+
+### ライフサイクル概要
+
+```
+Design → Context → Implementation → Verification → Review → Merge
+```
+
+### Phase 1: Design (設計 & 合意)
+
+1. **Issue作成**: 機能要件と非機能要件を定義
+2. **ADR作成**: 重要な技術選定は `docs/adr/YYYY-MM-DD-title.md` に記録
+
+### Phase 2: Context Loading (コンテキスト同期)
+
+1. **Feature Branch作成**: `git checkout -b feat/<ticket-id>-<desc>`
+2. **Serenaインデックス更新**: `uvx --from git+https://github.com/oraios/serena serena project index`
+3. **関連コード読み込み**: Serenaで実装対象周辺のコードを解析
+
+### Phase 3: Implementation (TDD実装)
+
+1. **Red**: テストケースを先に作成（`tests/unit/`）
+2. **Green**: テストが通る最小限の実装
+3. **Refactor**: 可読性向上、エラーハンドリング追加
+
+### Phase 4: Verification (品質保証)
+
+```bash
+make format   # コードフォーマット
+make lint     # リンターチェック
+make test     # 全テスト実行
+```
+
+### Phase 5: Review (PR作成 & セルフレビュー)
+
+1. **コミット**: Conventional Commits形式
+2. **AIセルフレビュー**: セキュリティ・パフォーマンス観点でチェック
+3. **PR作成**: テンプレートに従い、ADRへのリンクを含める
+
+### Phase 6: Merge (完了)
+
+1. **Human Review**: GitHub上でApprove
+2. **Squash and Merge**: 履歴をクリーンに保つ
+3. **Cleanup**: ブランチ削除、mainに戻る
+
+### Workflow Rules (Claude向け)
+
+1. **Design First:** 重要なアーキテクチャ変更は先にADRを作成
+2. **Context Aware:** 実装前にSerenaで既存コードと影響範囲を分析
+3. **Test Driven:** ビジネスロジック実装前にユニットテストを書く
+4. **Verification:** コミット前に必ず `make test` と `make lint` を実行
+5. **PR Standard:** PRテンプレートを使用、ADR/Issueへのリンクを含める
+
+## Architecture Rules (Strict Enforcement)
+
+### 1. Clean Architecture (Dependency Inversion)
+```
+presentation → application → domain ← infrastructure
+```
+
+- `src/domain/`: ドメインモデル、インターフェース定義。外部依存は**絶対禁止**。
+- `src/application/`: ユースケース、サービスロジック。domain のみに依存。
+- `src/infrastructure/`: 具体的な実装（Qdrant, OpenAI, Langfuse）。domain のインターフェースを実装。
+- `src/presentation/`: API Endpoints (FastAPI)。application を呼び出す。
+
+### 2. Typing (厳格)
+- すべての関数引数と戻り値に**型ヒントを必須**とする。
+- `Any` の使用は**原則禁止**。やむを得ない場合はコメントで理由を明記。
+- Pydantic モデルを積極的に使用し、ランタイムバリデーションを行う。
+
+### 3. Configuration
+- 設定は `os.environ` を直接読み込まず、必ず `config/settings.py` の Pydantic `BaseSettings` を経由。
+- 機密情報は `.env` に配置し、絶対にコミットしない。
+
+### 4. Error Handling
+- 例外を握りつぶさない（bare `except:` 禁止）。
+- カスタム例外を `src/domain/exceptions.py` に定義。
+- API層で `HTTPException` に変換してハンドリング。
+
+### 5. Async First
+- I/Oバウンドな処理（DB, LLM API, 外部サービス）はすべて `async/await` で実装。
+- 同期的なブロッキング呼び出しは `run_in_executor` でラップ。
+
+## Coding Style
+
+### Formatter & Linter
+- **Ruff** を使用（`ruff format` + `ruff check`）。
+- Line length: 88 characters。
+- Import sorting: Ruff の isort 互換機能を使用。
+
+### Docstrings
+- **Google Style Docstrings** をパブリックメソッドに記述。
+- 内部ヘルパー関数にはオプション。
+
+```python
+def search_documents(query: str, top_k: int = 10) -> list[Document]:
+    """Search for relevant documents using hybrid retrieval.
+
+    Args:
+        query: The search query string.
+        top_k: Maximum number of documents to return.
+
+    Returns:
+        List of Document objects sorted by relevance.
+
+    Raises:
+        SearchError: If the search operation fails.
+    """
+```
+
+### Naming Conventions
+- Classes: `PascalCase`
+- Functions/Variables: `snake_case`
+- Constants: `UPPER_SNAKE_CASE`
+- Private methods: `_leading_underscore`
+
+### Testing
+- **pytest** を使用。
+- Unit Tests: `tests/unit/` - 外部依存は Mock。
+- Integration Tests: `tests/integration/` - 実際の外部サービスを使用。
+- E2E Tests: `tests/e2e/` - API エンドポイントのテスト。
+
+## Development Commands
+
+```bash
+# Setup
+uv sync                    # Install dependencies
+
+# Development
+make run                   # Start dev server
+make test                  # Run all tests
+make test-unit             # Run unit tests only
+make lint                  # Run linter
+make format                # Format code
+
+# Docker
+make up                    # Start all services (Qdrant, Redis, Postgres)
+make down                  # Stop all services
+make logs                  # View service logs
+```
+
+## Tech Stack Details
+
+### Core
+- **Backend:** FastAPI, Pydantic V2, Uvicorn
+- **Agent Framework:** LangGraph (ステート管理付きのワークフロー)
+- **Vector DB:** Qdrant (Hybrid Search: Dense + Sparse Vectors)
+- **Database:** PostgreSQL (メタデータ、会話履歴)
+- **Cache/Queue:** Redis (Semantic Cache, Task Queue)
+
+### LLM
+- **Primary:** OpenAI API (GPT-4o, text-embedding-3-small)
+- **Fallback:** Azure OpenAI / Anthropic Claude
+- **Re-ranking:** Cohere Rerank API
+
+### Observability
+- **Tracing:** Langfuse (OSSセルフホスト可能)
+- **Evaluation:** Ragas (RAG精度評価)
+
+## File Structure Reference
+
+```
+enterprise-agentic-rag/
+├── .github/                 # CI/CD, PR templates
+├── config/                  # Pydantic settings
+│   ├── __init__.py
+│   └── settings.py
+├── docs/
+│   └── adr/                 # Architecture Decision Records
+├── src/
+│   ├── domain/              # 外部依存なし
+│   │   ├── __init__.py
+│   │   ├── entities.py      # Document, Query, etc.
+│   │   ├── exceptions.py    # Custom exceptions
+│   │   └── interfaces.py    # Abstract base classes
+│   ├── application/         # ユースケース
+│   │   ├── __init__.py
+│   │   ├── services.py
+│   │   └── use_cases.py
+│   ├── infrastructure/      # 具体実装
+│   │   ├── __init__.py
+│   │   ├── qdrant_repository.py
+│   │   ├── openai_client.py
+│   │   └── langfuse_tracer.py
+│   ├── presentation/        # API層
+│   │   ├── __init__.py
+│   │   ├── api.py
+│   │   └── schemas.py
+│   └── main.py              # Entrypoint
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── e2e/
+├── CLAUDE.md                # This file
+├── docker-compose.yml
+├── Makefile
+├── pyproject.toml
+└── README.md
+```
+
+## Git Workflow
+
+### Branch Naming
+- `main`: Production-ready code
+- `feat/<ticket-id>-<short-desc>`: Feature development
+- `fix/<ticket-id>-<short-desc>`: Bug fixes
+- `docs/<short-desc>`: Documentation updates
+- `refactor/<short-desc>`: Code refactoring
+
+### Commit Message Convention
+Format: `type(scope): subject`
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation
+- `style`: Formatting (no code change)
+- `refactor`: Code restructuring
+- `test`: Adding/updating tests
+- `chore`: Maintenance tasks
+- `perf`: Performance improvements
+
+Examples:
+```
+feat(retrieval): implement hybrid search with qdrant
+fix(api): handle empty context gracefully
+docs(readme): add architecture diagram
+test(search): add unit tests for re-ranking
+```
+
+### Commit/PR Rules (Claude向け)
+- コミットメッセージやPRに「🤖 Generated with Claude Code」や「Co-Authored-By: Claude」などのAI生成署名を**含めない**
+- 人間が書いたコミットと同じ形式で記述する
+
+## Important Constraints
+
+1. **No Hallucination:** 不明な点はコードを読んで確認する。推測で実装しない。
+2. **Incremental Changes:** 大きな変更は小さなステップに分割する。
+3. **Test Before Commit:** 変更後は必ず関連テストを実行。
+4. **Observe Boundaries:** 各層の境界を厳守。domain に infrastructure を import しない。
+
+## Common Tasks Reference
+
+### Adding a New Endpoint
+1. `src/domain/entities.py` にドメインモデルを追加
+2. `src/domain/interfaces.py` にリポジトリインターフェースを追加
+3. `src/application/use_cases.py` にユースケースを追加
+4. `src/presentation/schemas.py` にリクエスト/レスポンススキーマを追加
+5. `src/presentation/api.py` にエンドポイントを追加
+6. `tests/unit/` にユニットテストを追加
+
+### Adding a New External Integration
+1. `src/domain/interfaces.py` に抽象インターフェースを定義
+2. `src/infrastructure/` に具体実装を追加
+3. `config/settings.py` に設定項目を追加
+4. `tests/integration/` に統合テストを追加

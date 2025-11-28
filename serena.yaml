@@ -1,0 +1,11 @@
+project:
+  name: "enterprise-agentic-rag"
+  include:
+    - "src/**/*.py"
+    - "config/**/*.py"
+    - "tests/**/*.py"
+  exclude:
+    - "**/tests/data/**"
+    - "**/__pycache__/**"
+    - "**/.venv/**"
+    - "**/node_modules/**"

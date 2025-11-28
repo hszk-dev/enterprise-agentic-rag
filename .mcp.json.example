@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "serena": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server"
+      ],
+      "env": {}
+    }
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/YOUR_DATABASE"
+      ],
+      "env": {}
+    },
+    "qdrant": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@anthropic-ai/mcp-server-qdrant",
+        "--qdrant-url",
+        "http://localhost:6333"
+      ],
+      "env": {}
+    }
+  }
+}
