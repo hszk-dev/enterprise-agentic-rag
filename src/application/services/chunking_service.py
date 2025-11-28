@@ -107,6 +107,10 @@ class LangChainChunkingService(ChunkingService):
                 start_char = text.find(chunk_text)
             if start_char == -1:
                 # If still not found, use current position as approximation
+                logger.warning(
+                    f"Could not find exact position for chunk {index} in document "
+                    f"{document_id}, using approximation"
+                )
                 start_char = current_position
 
             end_char = start_char + len(chunk_text)

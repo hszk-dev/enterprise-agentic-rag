@@ -251,8 +251,7 @@ class IngestionService:
                 )
             file = await self._blob_storage.download(document.file_path)
 
-        # Reset document state and re-ingest
-        document.status = document.status  # Keep current status for now
+        # Re-ingest document (ingest_document will handle status transitions)
         return await self.ingest_document(document, file)
 
     async def _upload_to_storage(
