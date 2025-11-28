@@ -4,6 +4,7 @@ Provides endpoints for searching documents and generating answers.
 """
 
 import logging
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -207,7 +208,7 @@ async def execute_stream_query(
         filters=request.filters,
     )
 
-    async def generate_stream_events():
+    async def generate_stream_events() -> AsyncGenerator[str, None]:
         """Generate SSE events."""
         sources: list[SourceResponse] = []
 

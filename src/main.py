@@ -4,7 +4,9 @@ This module creates and configures the FastAPI application instance.
 """
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan context manager.
 
     Handles startup and shutdown events.
@@ -100,7 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(query.router, prefix="/api/v1")
 
     @app.get("/", include_in_schema=False)
-    async def root():
+    async def root() -> dict[str, Any]:
         """Root endpoint."""
         return {
             "name": settings.app_name,
