@@ -115,6 +115,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Start MinIO  # pragma: allowlist secret
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data --console-address ":9001"
+          # Wait for MinIO to be ready
+          for i in {1..30}; do
+            curl -sf http://localhost:9000/minio/health/live && break
+            echo "Waiting for MinIO..."
+            sleep 1
+          done
+
       - name: Install uv
         uses: astral-sh/setup-uv@v4
         with:
@@ -131,4 +145,7 @@ jobs:
           QDRANT_URL: http://localhost:6333
           REDIS_URL: redis://localhost:6379
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/rag_test
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin  # pragma: allowlist secret
         run: uv run pytest tests/integration/ -v -m integration
