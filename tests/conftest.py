@@ -5,6 +5,7 @@ import os
 import pytest
 
 from config import (
+    ChunkingSettings,
     CohereSettings,
     DatabaseSettings,
     MinIOSettings,
@@ -107,4 +108,17 @@ def cohere_settings():
         rerank_model="rerank-v3.5",
         max_retries=3,
         timeout=30.0,
+    )
+
+
+@pytest.fixture
+def chunking_settings():
+    """Create chunking settings for testing.
+
+    Uses smaller chunk size for faster tests.
+    """
+    return ChunkingSettings(
+        chunk_size=500,
+        chunk_overlap=100,
+        separators=["\n\n", "\n", ". ", " ", ""],
     )
