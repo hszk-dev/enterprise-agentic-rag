@@ -172,6 +172,18 @@ def search_documents(query: str, top_k: int = 10) -> list[Document]:
 - Integration Tests: `tests/integration/` - 実際の外部サービスを使用。
 - E2E Tests: `tests/e2e/` - API エンドポイントのテスト。
 
+### Logging
+- **f-string を使用**: このプロジェクトでは `logger.info(f"...")` 形式を使用する
+- Ruff の `G004` (flake8-logging-format) は有効化しない
+
+```python
+# OK: f-string
+logger.info(f"Uploaded file: {filename} ({size} bytes)")
+
+# NO: 遅延フォーマット（原則使用しない）
+logger.info("Uploaded file: %s (%d bytes)", filename, size)
+```
+
 ## Development Commands
 
 ```bash

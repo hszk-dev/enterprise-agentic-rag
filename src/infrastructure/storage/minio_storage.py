@@ -3,6 +3,7 @@
 import asyncio
 import io
 import logging
+from datetime import timedelta
 from functools import partial
 from typing import BinaryIO
 from uuid import uuid4
@@ -44,32 +45,34 @@ class MinIOStorage(BlobStorage):
         )
         self._bucket_name = settings.bucket_name
         self._initialized = False
+        self._init_lock = asyncio.Lock()
 
     async def initialize(self) -> None:
         """Initialize the storage by creating bucket if it doesn't exist.
 
         Should be called once during application startup.
+        Thread-safe: uses asyncio Lock to prevent race conditions.
         """
-        if self._initialized:
-            return
+        async with self._init_lock:
+            if self._initialized:
+                return
 
-        loop = asyncio.get_running_loop()
-        try:
-            exists = await loop.run_in_executor(
-                None, self._client.bucket_exists, self._bucket_name
-            )
-            if not exists:
-                await loop.run_in_executor(
-                    None, self._client.make_bucket, self._bucket_name
+            loop = asyncio.get_running_loop()
+            try:
+                exists = await loop.run_in_executor(
+                    None, self._client.bucket_exists, self._bucket_name
                 )
-                logger.info(f"Created bucket: {self._bucket_name}")
-            else:
-                logger.info(f"Bucket already exists: {self._bucket_name}")
-            self._initialized = True
-        except S3Error as e:
-            msg = f"Failed to initialize MinIO bucket: {e}"
-            logger.error(msg)
-            raise StorageError(msg) from e
+                if not exists:
+                    await loop.run_in_executor(
+                        None, self._client.make_bucket, self._bucket_name
+                    )
+                    logger.info("Created bucket: %s", self._bucket_name)
+                else:
+                    logger.info("Bucket already exists: %s", self._bucket_name)
+                self._initialized = True
+            except S3Error as e:
+                logger.error("Failed to initialize MinIO bucket: %s", e)
+                raise StorageError(f"Failed to initialize MinIO bucket: {e}") from e
 
     async def upload(
         self,
@@ -114,16 +117,16 @@ class MinIOStorage(BlobStorage):
                     content_type=content_type,
                 ),
             )
-            logger.info(f"Uploaded file: {object_name} ({file_size} bytes)")
+            logger.info("Uploaded file: %s (%d bytes)", object_name, file_size)
             return object_name
 
         except S3Error as e:
             msg = f"S3 error: {e}"
-            logger.error(f"Failed to upload {filename}: {msg}")
+            logger.error("Failed to upload %s: %s", filename, msg)
             raise StorageUploadError(filename, msg) from e
         except Exception as e:
             msg = str(e)
-            logger.error(f"Failed to upload {filename}: {msg}")
+            logger.error("Failed to upload %s: %s", filename, msg)
             raise StorageUploadError(filename, msg) from e
 
     async def download(self, path: str) -> BinaryIO:
@@ -251,8 +254,6 @@ class MinIOStorage(BlobStorage):
         Raises:
             StorageError: If URL generation fails.
         """
-        from datetime import timedelta
-
         loop = asyncio.get_running_loop()
 
         try:

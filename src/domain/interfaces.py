@@ -102,3 +102,10 @@ class BlobStorage(Protocol):
             StorageError: If URL generation fails.
         """
         ...
+
+    async def close(self) -> None:
+        """Close and clean up storage resources.
+
+        Should be called when the storage is no longer needed.
+        """
+        ...
