@@ -67,6 +67,7 @@ def _document_to_detail_response(document: Document) -> DocumentDetailResponse:
 async def upload_document(
     file: Annotated[UploadFile, File(description="Document file to upload")],
     ingestion_service: IngestionServiceDep,
+    document_repo: DocumentRepositoryDep,
 ) -> DocumentUploadResponse:
     """Upload and process a document.
 
@@ -114,6 +115,10 @@ async def upload_document(
         content_type=content_type,
         size_bytes=file_size,
     )
+
+    # Save document to database with PENDING status
+    document = await document_repo.save(document)
+    logger.info(f"Document {document.id} saved to database with PENDING status")
 
     try:
         # Ingest the document (wrap bytes in BytesIO for BinaryIO interface)

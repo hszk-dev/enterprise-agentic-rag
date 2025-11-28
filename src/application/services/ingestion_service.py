@@ -114,10 +114,6 @@ class IngestionService:
         )
 
         try:
-            # Step 0: Save document to database with PENDING status
-            document = await self._document_repo.save(document)
-            logger.info(f"Document {document.id} saved to database")
-
             # Step 1: Upload file to blob storage
             file_path = await self._upload_to_storage(document, file)
             document.set_file_path(file_path)
