@@ -222,6 +222,18 @@ class DocumentRepository(Protocol):
         """
         ...
 
+    async def initialize(self) -> None:
+        """Initialize the repository (create tables/schema if needed).
+
+        Raises:
+            RepositoryError: If initialization fails.
+        """
+        ...
+
+    async def close(self) -> None:
+        """Close repository connections."""
+        ...
+
 
 # =============================================================================
 # Vector Store Interface
@@ -315,6 +327,14 @@ class VectorStore(Protocol):
 
         Returns:
             Dictionary with stats (vectors_count, indexed_vectors_count, etc.).
+        """
+        ...
+
+    async def initialize(self) -> None:
+        """Initialize the vector store (create collection if needed).
+
+        Raises:
+            SearchError: If initialization fails.
         """
         ...
 
