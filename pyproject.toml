@@ -46,7 +46,7 @@ dependencies = [
     # Document Processing
     "pypdf>=5.1.0",
     "python-docx>=1.1.0",
-    "unstructured>=0.16.0",
+    "unstructured[md,pdf]>=0.16.0",
 
     # Observability
     "langfuse>=2.53.0",
@@ -197,3 +197,8 @@ module = [
     "unstructured.*",
 ]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "fpdf2>=2.8.5",
+]
