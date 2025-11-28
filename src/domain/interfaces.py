@@ -17,7 +17,7 @@ Available interfaces:
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, BinaryIO, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, BinaryIO, Protocol, runtime_checkable
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -251,7 +251,7 @@ class VectorStore(Protocol):
         self,
         query_embedding: list[float],
         top_k: int = 10,
-        filters: dict | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> list["SearchResult"]:
         """Dense vector similarity search.
 
@@ -275,7 +275,7 @@ class VectorStore(Protocol):
         query_sparse_embedding: "SparseVector",
         top_k: int = 10,
         alpha: float = 0.5,
-        filters: dict | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> list["SearchResult"]:
         """Hybrid search combining dense and sparse vectors.
 
@@ -309,7 +309,7 @@ class VectorStore(Protocol):
         """
         ...
 
-    async def get_collection_stats(self) -> dict:
+    async def get_collection_stats(self) -> dict[str, Any]:
         """Get vector store collection statistics.
 
         Returns:
@@ -545,7 +545,7 @@ class ChunkingService(ABC):
         self,
         text: str,
         document_id: UUID,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> list["Chunk"]:
         """Split text into chunks.
 
