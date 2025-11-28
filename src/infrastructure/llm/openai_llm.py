@@ -7,7 +7,7 @@ retry and fallback mechanisms.
 
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 from openai import (
     APIConnectionError,
@@ -270,7 +270,7 @@ Question: {prompt}"""
         context: list[str],
         temperature: float = 0.0,
         max_tokens: int = 1024,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator[str, None]:
         """Generate a streaming response.
 
         Yields text chunks as they are generated. Does not include

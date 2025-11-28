@@ -16,7 +16,7 @@ Available interfaces:
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, BinaryIO, Protocol, runtime_checkable
 from uuid import UUID
 
@@ -471,14 +471,17 @@ class LLMService(Protocol):
         """
         ...
 
-    async def generate_stream(
+    def generate_stream(
         self,
         prompt: str,
         context: list[str],
         temperature: float = 0.0,
         max_tokens: int = 1024,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator[str, None]:
         """Generate a streaming response.
+
+        This method returns an async generator that yields text chunks.
+        Implementations should be async generator functions (async def with yield).
 
         Args:
             prompt: User prompt/query.

@@ -5,7 +5,7 @@ Orchestrates the complete RAG pipeline: search -> context formatting -> LLM gene
 
 import logging
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
 from src.domain.entities import GenerationResult, Query, SearchResult
@@ -125,6 +125,9 @@ class GenerationService:
         """
         # Rough estimate: ~4 characters per token for English
         # This is a simplification; actual tokenization varies by model
+        # Note: Japanese text typically has 1-2 chars per token, so this
+        # underestimates token count for Japanese content. Consider using
+        # tiktoken for accurate counting in production.
         return len(text) // 4
 
     async def generate(
@@ -216,7 +219,7 @@ class GenerationService:
         search_results: list[SearchResult],
         temperature: float = 0.0,
         max_tokens: int = 1024,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncGenerator[str, None]:
         """Generate a streaming answer using RAG.
 
         Yields answer chunks as they are generated.
@@ -242,7 +245,7 @@ class GenerationService:
         )
 
         try:
-            async for chunk in self._llm_service.generate_stream(  # type: ignore[attr-defined]
+            async for chunk in self._llm_service.generate_stream(
                 prompt=query.text,
                 context=context_passages,
                 temperature=temperature,
